@@ -1,0 +1,30 @@
+{
+  "name": "lkdr-deploy-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deploys a complete test environment to your own AWS account and prints QR codes for phone testing",
+  "type": "module",
+  "scripts": {
+    "deploy": "bash deploy.sh",
+    "qr": "tsx make-qr.ts",
+    "logos": "tsx upload-logos.ts",
+    "reset": "bash reset-data.sh",
+    "destroy": "bash destroy.sh",
+    "qa": "node qa/run-all.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.787.0",
+    "@aws-sdk/client-dynamodb": "^3.787.0",
+    "@aws-sdk/client-s3": "^3.787.0",
+    "@aws-sdk/lib-dynamodb": "^3.787.0",
+    "jose": "^6.0.11",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/qrcode": "^1.5.5",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "playwright-core": "1.55.0"
+  }
+}

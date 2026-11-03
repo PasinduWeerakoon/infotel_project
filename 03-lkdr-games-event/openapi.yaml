@@ -1,0 +1,582 @@
+openapi: 3.1.0
+info:
+  title: LKDR Games Event API (Project A)
+  version: 1.0.0-draft
+  description: |
+    Spin the Wheel and Lucky Dip. Visitor, admin and shared auth endpoints.
+    The stall screen WebSocket protocol is described in api-plan.md.
+servers:
+  - url: https://api.dev.example.lk
+    description: Development (domain to be confirmed)
+  - url: https://api.example.lk
+    description: Production (domain to be confirmed)
+tags:
+  - name: Auth
+  - name: Visitor
+  - name: Admin
+components:
+  securitySchemes:
+    visitorSession:
+      type: apiKey
+      in: cookie
+      name: lkdr_session
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: lkdr_admin
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    EntryId:
+      name: entryId
+      in: path
+      required: true
+      schema: { type: string, example: ent_01HF8Z4A7Q }
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, example: ses_20261102_1 }
+    Reference:
+      name: reference
+      in: path
+      required: true
+      schema: { type: string, example: LKDR-SW-7K3Q9X }
+  schemas:
+    Game:
+      type: string
+      enum: [spin, lucky-dip]
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [SCAN_NOT_FOUND, SCAN_NOT_YOURS, SCAN_ALREADY_USED, SESSION_CLOSED, GAME_PAUSED,
+                     ALREADY_PLAYED_THIS_SESSION, GAME_IN_PROGRESS, NO_PRIZES_LEFT, ENTRY_EXPIRED,
+                     MAIN_PRIZE_ALREADY_WON, ALREADY_COLLECTED, VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND]
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    SessionSummary:
+      type: object
+      properties:
+        sessionId: { type: string }
+        name: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { type: string, enum: [scheduled, open, closed] }
+    Status:
+      type: object
+      properties:
+        serverTime: { type: string, format: date-time }
+        currentSession: { $ref: '#/components/schemas/SessionSummary' }
+        nextSession: { $ref: '#/components/schemas/SessionSummary' }
+        games:
+          type: object
+          properties:
+            spin: { type: string, enum: [open, paused, closed] }
+            lucky-dip: { type: string, enum: [open, paused, closed] }
+        screen: { type: string, enum: [idle, busy, offline] }
+    Prize:
+      type: object
+      properties:
+        prizeId: { type: string, example: pen-drive }
+        name: { type: string, example: Pen drive }
+        isMainPrize: { type: boolean }
+    Entry:
+      type: object
+      properties:
+        entryId: { type: string }
+        game: { $ref: '#/components/schemas/Game' }
+        sessionId: { type: string }
+        status: { type: string, enum: [ready, played, expired] }
+        expiresAt: { type: string, format: date-time }
+        prize: { $ref: '#/components/schemas/Prize' }
+        reference: { type: string }
+        animation:
+          type: object
+          properties:
+            target: { type: integer, description: Wheel slice or Lucky Dip item index }
+            durationMs: { type: integer }
+    PrizeInput:
+      type: object
+      required: [name, stock, isMainPrize]
+      properties:
+        name: { type: string, maxLength: 60 }
+        stock: { type: integer, minimum: 0 }
+        isMainPrize: { type: boolean }
+    SessionInput:
+      type: object
+      required: [name, date, startsAt, endsAt, games]
+      properties:
+        name: { type: string }
+        date: { type: string, format: date }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        games:
+          type: array
+          items: { $ref: '#/components/schemas/Game' }
+    AllocationLine:
+      type: object
+      required: [game, prizeId, allocated]
+      properties:
+        game: { $ref: '#/components/schemas/Game' }
+        prizeId: { type: string }
+        allocated: { type: integer, minimum: 0 }
+        remaining: { type: integer, readOnly: true }
+        given: { type: integer, readOnly: true }
+    AutoSplitRequest:
+      type: object
+      required: [date, game, totals]
+      properties:
+        date: { type: string, format: date }
+        game: { $ref: '#/components/schemas/Game' }
+        totals:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        weights:
+          type: object
+          description: Session ID to weight. Omit to split by session length.
+          additionalProperties: { type: number, minimum: 0 }
+        apply: { type: boolean, default: false }
+    ReferenceInfo:
+      type: object
+      properties:
+        reference: { type: string }
+        prize: { $ref: '#/components/schemas/Prize' }
+        game: { $ref: '#/components/schemas/Game' }
+        sessionId: { type: string }
+        playedAt: { type: string, format: date-time }
+        collectedAt: { type: [string, 'null'], format: date-time }
+        collectedBy: { type: [string, 'null'] }
+    Settings:
+      type: object
+      properties:
+        lockTimeoutSeconds: { type: integer, default: 60 }
+        pacingEnabled: { type: boolean, default: false }
+        repeatWinnerRule: { type: boolean, default: false }
+        unusedPrizes: { type: string, enum: [expire, roll-over], default: expire }
+        playsPerSession: { type: integer, default: 1 }
+  responses:
+    Conflict:
+      description: Business rule prevents the action
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+paths:
+  /auth/v1/login:
+    get:
+      tags: [Auth]
+      summary: Start QuickLook sign-in (silent when possible)
+      parameters:
+        - { name: returnTo, in: query, schema: { type: string } }
+      responses:
+        '302': { description: Redirect to the QuickLook authorization endpoint }
+  /auth/v1/callback:
+    get:
+      tags: [Auth]
+      summary: OpenID Connect callback
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string } }
+        - { name: state, in: query, required: true, schema: { type: string } }
+      responses:
+        '302': { description: Sets lkdr_session and redirects to the page stored in state }
+  /auth/v1/session:
+    get:
+      tags: [Auth]
+      summary: Current visitor session
+      security: [{ visitorSession: [] }]
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userRef: { type: string, description: Short reference of the opaque QuickLook ID }
+                  displayName: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        '401': { description: Not signed in }
+  /games/v1/status:
+    get:
+      tags: [Visitor]
+      summary: Current session, game and screen state
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Status' }
+  /games/v1/entries:
+    post:
+      tags: [Visitor]
+      summary: Create an entry from a QuickLook scan
+      security: [{ visitorSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scanId]
+              properties:
+                scanId: { type: string, example: qls_01HF8Z3K2M }
+      responses:
+        '201':
+          description: Entry created, screen lock taken
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entry' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422':
+          description: Scan not found or not this visitor's
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /games/v1/entries/{entryId}:
+    get:
+      tags: [Visitor]
+      summary: Entry state and result
+      security: [{ visitorSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/EntryId' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entry' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /games/v1/entries/{entryId}/play:
+    post:
+      tags: [Visitor]
+      summary: Draw the prize (weighted random by remaining quantity)
+      security: [{ visitorSession: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/EntryId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Played. Repeated calls return the same result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entry' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /games/v1/me/results:
+    get:
+      tags: [Visitor]
+      summary: The visitor's results for today
+      security: [{ visitorSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Entry' }
+  /admin/v1/games/prizes:
+    get:
+      tags: [Admin]
+      summary: List prizes
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { allOf: [{ $ref: '#/components/schemas/Prize' }, { $ref: '#/components/schemas/PrizeInput' }] }
+    post:
+      tags: [Admin]
+      summary: Create a prize
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrizeInput' }
+      responses:
+        '201': { description: Created }
+  /admin/v1/games/prizes/{prizeId}:
+    parameters:
+      - { name: prizeId, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [Admin]
+      summary: Update a prize
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrizeInput' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Admin]
+      summary: Delete a prize that was never allocated
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Deleted }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/games/sessions:
+    get:
+      tags: [Admin]
+      summary: List sessions for a date
+      security: [{ adminSession: [] }]
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SessionSummary' }
+    post:
+      tags: [Admin]
+      summary: Create a session (no overlap on the same day)
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionInput' }
+      responses:
+        '201': { description: Created }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/games/sessions/{sessionId}:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [Admin]
+      summary: Read a session
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionSummary' }
+    put:
+      tags: [Admin]
+      summary: Update a session
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionInput' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Admin]
+      summary: Delete a session with no plays
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Deleted }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/games/sessions/{sessionId}/open:
+    post:
+      tags: [Admin]
+      summary: Open a session early
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200': { description: Opened }
+  /admin/v1/games/sessions/{sessionId}/close:
+    post:
+      tags: [Admin]
+      summary: Close a session early
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200': { description: Closed }
+  /admin/v1/games/sessions/{sessionId}/allocation:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [Admin]
+      summary: Prize allocation for a session
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AllocationLine' }
+    put:
+      tags: [Admin]
+      summary: Set the allocation (cannot go below the quantity already given or above stock)
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/AllocationLine' }
+      responses:
+        '200': { description: Saved }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/games/allocations/auto-split:
+    post:
+      tags: [Admin]
+      summary: Preview or apply a split of daily totals across sessions (largest remainder method)
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AutoSplitRequest' }
+      responses:
+        '200':
+          description: Proposed allocation per session
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items: { $ref: '#/components/schemas/AllocationLine' }
+  /admin/v1/games/games/{game}/status:
+    put:
+      tags: [Admin]
+      summary: Open or pause a game
+      security: [{ adminSession: [] }]
+      parameters:
+        - { name: game, in: path, required: true, schema: { $ref: '#/components/schemas/Game' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [open, paused] }
+      responses:
+        '200': { description: Updated }
+  /admin/v1/games/live:
+    get:
+      tags: [Admin]
+      summary: Live view of the current session
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: '#/components/schemas/SessionSummary' }
+                  allocation:
+                    type: array
+                    items: { $ref: '#/components/schemas/AllocationLine' }
+                  plays: { type: integer }
+                  screen:
+                    type: object
+                    properties:
+                      connected: { type: boolean }
+                      lockedByEntryId: { type: [string, 'null'] }
+                      lockExpiresAt: { type: [string, 'null'], format: date-time }
+  /admin/v1/games/screens:
+    get:
+      tags: [Admin]
+      summary: List stall screens
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Admin]
+      summary: Create a stall screen and return its key once
+      security: [{ adminSession: [] }]
+      responses:
+        '201': { description: Created, screen key returned once }
+  /admin/v1/games/screens/{screenId}/release-lock:
+    post:
+      tags: [Admin]
+      summary: Release a stuck screen lock
+      security: [{ adminSession: [] }]
+      parameters:
+        - { name: screenId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Released }
+  /admin/v1/games/references/{reference}:
+    get:
+      tags: [Admin]
+      summary: Prize desk lookup
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/Reference' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceInfo' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/v1/games/references/{reference}/collect:
+    post:
+      tags: [Admin]
+      summary: Mark the prize collected (once)
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/Reference' }]
+      responses:
+        '200': { description: Collected }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/games/reports/plays:
+    get:
+      tags: [Admin]
+      summary: Plays export
+      security: [{ adminSession: [] }]
+      parameters:
+        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200': { description: OK }
+  /admin/v1/games/reports/summary:
+    get:
+      tags: [Admin]
+      summary: Given and remaining per session, game and prize
+      security: [{ adminSession: [] }]
+      parameters:
+        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200': { description: OK }
+  /admin/v1/games/settings:
+    get:
+      tags: [Admin]
+      summary: Read settings
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+    put:
+      tags: [Admin]
+      summary: Update settings (super admin)
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Settings' }
+      responses:
+        '200': { description: Updated }

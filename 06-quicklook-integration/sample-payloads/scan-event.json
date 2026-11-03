@@ -1,0 +1,12 @@
+{
+  "eventId": "evt_01HF8Z3K2N",
+  "eventType": "logo.scanned",
+  "occurredAt": "2026-11-02T10:14:05+05:30",
+  "scan": {
+    "scanId": "qls_01HF8Z3K2M",
+    "logoId": "logo_game_spin"
+  },
+  "user": {
+    "sub": "ql_pw_8f3a2c91"
+  }
+}

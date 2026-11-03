@@ -1,0 +1,214 @@
+@import "tailwindcss";
+@import "@fontsource-variable/fredoka";
+@import "@fontsource-variable/nunito";
+
+/*
+ * LKDR game look: "Arcade night".
+ * Deep purple night sky, bright candy colours, chunky press-down buttons, glassy chips,
+ * a rounded playful font. Every screen uses these tokens only.
+ */
+@theme {
+  --font-sans: "Nunito Variable", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fredoka Variable", "Nunito Variable", ui-rounded, system-ui, sans-serif;
+
+  --color-night: #170e3f;
+  --color-deep: #241565;
+  --color-violet: #5a3ad1;
+  --color-lilac: #b9a8ff;
+  --color-haze: #d9d2ff;
+
+  --color-sun: #ffcd1f;
+  --color-sun-light: #ffe066;
+  --color-sun-deep: #d48a00;
+  --color-coral: #ff5470;
+  --color-tangerine: #ff8a1e;
+  --color-mint: #22d98e;
+  --color-sky: #38b6ff;
+  --color-candy: #ff4fcf;
+  --color-grape: #9b5cff;
+
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-pop: pop 520ms var(--ease-bounce) both;
+  --animate-rise: rise 520ms var(--ease-out) both;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-wobble: wobble 700ms ease-in-out infinite;
+  --animate-twinkle: twinkle 1.4s ease-in-out infinite;
+  --animate-glow: glow 2s ease-in-out infinite;
+}
+
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1.05);
+  }
+  25% {
+    transform: rotate(-7deg) scale(1.08);
+  }
+  75% {
+    transform: rotate(7deg) scale(1.08);
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 205 31 / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgb(255 205 31 / 0);
+  }
+}
+@keyframes loading {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-night);
+    color: white;
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply font-sans antialiased;
+    overscroll-behavior-y: none;
+  }
+  button {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Night sky: two soft colour glows and a faint star dust pattern */
+  .arcade-bg {
+    background: radial-gradient(60% 45% at 15% 0%, rgb(155 92 255 / 0.55), transparent 70%),
+      radial-gradient(55% 40% at 100% 100%, rgb(56 182 255 / 0.35), transparent 70%),
+      radial-gradient(rgb(255 255 255 / 0.12) 1px, transparent 1.5px) 0 0 / 26px 26px,
+      linear-gradient(180deg, var(--color-deep), var(--color-night));
+    background-attachment: fixed;
+  }
+  /* Frosted glass panel for chips and info cards */
+  .glass {
+    @apply rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md;
+  }
+  /* The big yellow press-down button */
+  .btn-sun {
+    background: linear-gradient(180deg, var(--color-sun-light), var(--color-sun));
+    color: #3a2400;
+    box-shadow: 0 6px 0 var(--color-sun-deep), 0 14px 28px -6px rgb(255 205 31 / 0.55);
+  }
+  .btn-sun:active {
+    transform: translateY(5px);
+    box-shadow: 0 1px 0 var(--color-sun-deep), 0 6px 14px -6px rgb(255 205 31 / 0.5);
+  }
+  /* Rainbow text for big wins */
+  .rainbow-text {
+    background: linear-gradient(
+      90deg,
+      var(--color-sun),
+      var(--color-tangerine),
+      var(--color-candy),
+      var(--color-sky)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* A light dash running along a track, for loading */
+  .loading-bar {
+    animation: loading 1.2s var(--ease-out) infinite;
+  }
+}
+
+/* Page changes: a quick fade and lift (View Transitions API where supported) */
+::view-transition-old(root) {
+  animation: 160ms ease-out both vt-out;
+}
+::view-transition-new(root) {
+  animation: 340ms var(--ease-out) both vt-in;
+}
+@keyframes vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+}
+
+/* Lucky Dip box reveal */
+.flip-card {
+  perspective: 900px;
+}
+.flip-inner {
+  transition: transform 750ms var(--ease-bounce);
+  transform-style: preserve-3d;
+}
+.flip-card[data-open="true"] .flip-inner {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  backface-visibility: hidden;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

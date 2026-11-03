@@ -1,0 +1,9 @@
+{
+  "iss": "https://<quicklook-issuer>",
+  "aud": "<our-client-id>",
+  "sub": "ql_pw_8f3a2c91",
+  "given_name": "Nimal",
+  "nonce": "n-0S6_WzA2Mj",
+  "iat": 1793594646,
+  "exp": 1793595546
+}

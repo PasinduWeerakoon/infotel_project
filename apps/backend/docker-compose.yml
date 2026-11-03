@@ -1,0 +1,12 @@
+# Local database for all backend services: docker compose up -d
+services:
+  dynamodb:
+    image: amazon/dynamodb-local:2.6.1
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data
+    ports:
+      - "8100:8000"
+    volumes:
+      - dynamodb-data:/data
+    user: root
+volumes:
+  dynamodb-data:

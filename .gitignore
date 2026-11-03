@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+cdk.out/
+coverage/
+*.tsbuildinfo
+
+# Local secrets and environment, never commit
+.env
+.env.*
+!.env.example
+.state*/
+secrets*.env
+*.pem
+*.key
+
+# Logs, local data and OS files
+*.log
+.DS_Store
+.dynamodb/
+test-results/
+playwright-report/
+
+# Generated QR sheets carry live screen keys
+test-kit/qr-sheet*.html

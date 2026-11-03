@@ -1,0 +1,46 @@
+{
+  "name": "lkdr-platform-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LKDR shared platform: QuickLook sign in, scan event webhook, admin login and users, logos and uploads",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/local/server.ts",
+    "db:setup": "tsx --env-file=.env scripts/setup-local-db.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "cdk": "cdk",
+    "deploy": "cdk deploy",
+    "db:seed-aws": "tsx scripts/setup-local-db.ts"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.20.0",
+    "@aws-lambda-powertools/parameters": "^2.20.0",
+    "@aws-sdk/client-dynamodb": "^3.830.0",
+    "@aws-sdk/client-eventbridge": "^3.830.0",
+    "@aws-sdk/client-s3": "^3.830.0",
+    "@aws-sdk/client-ssm": "^3.830.0",
+    "@aws-sdk/lib-dynamodb": "^3.830.0",
+    "@aws-sdk/s3-request-presigner": "^3.830.0",
+    "jose": "^6.0.11",
+    "ulid": "^3.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@types/aws-lambda": "^8.10.150",
+    "@types/node": "^22.15.0",
+    "aws-cdk": "^2.1018.0",
+    "aws-cdk-lib": "^2.200.0",
+    "constructs": "^10.4.2",
+    "esbuild": "^0.25.5",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0"
+  }
+}

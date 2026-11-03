@@ -1,0 +1,27 @@
+/* Base styles. Everything else comes from the Ant Design theme (app/theme.ts). */
+html,
+body {
+  margin: 0;
+  background: #f6f4fb;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Numbers in tables line up */
+.ant-table-cell,
+.ant-statistic-content {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Headings use the same rounded display font as the games */
+h1.ant-typography,
+h2.ant-typography,
+h3.ant-typography,
+h4.ant-typography,
+.ant-card-head-title,
+.ant-statistic-content {
+  font-family: "Fredoka Variable", "Nunito Variable", ui-rounded, system-ui, sans-serif !important;
+}

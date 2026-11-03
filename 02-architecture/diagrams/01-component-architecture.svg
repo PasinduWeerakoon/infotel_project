@@ -1,0 +1,379 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3200" height="2340" viewBox="0 0 3200 2340">
+<defs>
+ <marker id="mA" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#232F3E"/></marker>
+ <marker id="mS" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#232F3E"/></marker>
+</defs>
+<rect width="3200" height="3200" fill="#FFFFFF"/>
+<text x="40" y="70" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="38" font-weight="700" fill="#232F3E" text-anchor="start">LKDR Games Platform: Component Architecture</text>
+<text x="40" y="108" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="400" fill="#545B64" text-anchor="start">Project A: LKDR Games Event (Spin the Wheel + Lucky Dip)  |  Project B: Treasure Hunt  |  One LKDR Admin Dashboard</text>
+<rect x="2420" y="34" width="740" height="86" rx="8" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<text x="2440" y="66" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#232F3E" text-anchor="start">Version 1.0 (draft for review)   |   27 Oct 2026</text>
+<text x="2440" y="96" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Numbers on the diagram match the flow table below</text>
+<rect x="40" y="180" width="440" height="830" rx="14" fill="none" stroke="#7D8998" stroke-width="2" stroke-dasharray="12 8"/>
+<rect x="60" y="164" width="280" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="74" y="186" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">Visitors (untrusted devices)</text>
+<rect x="215" y="230" width="90" height="160" rx="14" fill="#FFFFFF" stroke="#232F3E" stroke-width="2.2"/>
+<path d="M248 244 H272" fill="none" stroke="#232F3E" stroke-width="2.2"/>
+<circle cx="260" cy="376" r="5" fill="none" stroke="#232F3E" stroke-width="1.8"/>
+<text x="260" y="420" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#232F3E" text-anchor="middle">Visitor phone</text>
+<text x="260" y="442" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#545B64" text-anchor="middle">Mobile browser</text>
+<text x="260" y="462" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#545B64" text-anchor="middle">QuickLook account</text>
+<rect x="175.0" y="560" width="170" height="95.2" rx="4" fill="#FFFFFF" stroke="#232F3E" stroke-width="2.2"/>
+<path d="M260 655.2 V677.2 M222 677.2 H298" fill="none" stroke="#232F3E" stroke-width="2.2"/>
+<text x="260" y="713.2" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#232F3E" text-anchor="middle">Stall screen (16:9)</text>
+<text x="260" y="735.2" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#545B64" text-anchor="middle">Spin the Wheel and Lucky Dip</text>
+<rect x="175.0" y="800" width="170" height="95.2" rx="4" fill="#FFFFFF" stroke="#232F3E" stroke-width="2.2"/>
+<path d="M260 895.2 V917.2 M222 917.2 H298" fill="none" stroke="#232F3E" stroke-width="2.2"/>
+<text x="260" y="953.2" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#232F3E" text-anchor="middle">Leaderboard screen</text>
+<text x="260" y="975.2" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#545B64" text-anchor="middle">Treasure Hunt</text>
+<rect x="40" y="1060" width="440" height="440" rx="14" fill="none" stroke="#7D8998" stroke-width="2" stroke-dasharray="12 8"/>
+<rect x="60" y="1044" width="217" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="74" y="1066" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">LKDR staff and admins</text>
+<rect x="185" y="1110" width="150" height="92" rx="4" fill="#FFFFFF" stroke="#232F3E" stroke-width="2.2"/>
+<path d="M160 1202 H360 L345 1220 H175 Z" fill="none" stroke="#232F3E" stroke-width="2.2"/>
+<text x="260" y="1255" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#232F3E" text-anchor="middle">LKDR Admin Dashboard</text>
+<text x="260" y="1277" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#545B64" text-anchor="middle">One app, tabs per project</text>
+<text x="260" y="1297" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#545B64" text-anchor="middle">Built-in admin login, roles</text>
+<rect x="540" y="180" width="2620" height="250" rx="14" fill="#FAFAFA" stroke="#7D8998" stroke-width="2" stroke-dasharray="12 8"/>
+<rect x="560" y="164" width="379" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="574" y="186" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">QuickLook platform, ql.lk (third party)</text>
+<rect x="580" y="240" width="500" height="150" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="596" y="256" width="52" height="52" rx="8.32" fill="#232F3E"/>
+<rect x="611.0" y="271.0" width="7.0" height="7.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="627.0" y="271.0" width="7.0" height="7.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="611.0" y="287.0" width="7.0" height="7.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M627.0 287.0 h3.0 M633.0 287.0 v6.0 M627.0 293.0 h3.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="664" y="280" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Logo scanner and sign-in</text>
+<text x="664" y="306" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">QuickLook IAM accounts</text>
+<text x="664" y="328" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Recognises game and stall logos</text>
+<rect x="1120" y="240" width="780" height="150" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1136" y="256" width="52" height="52" rx="8.32" fill="#232F3E"/>
+<rect x="1151.0" y="280.0" width="22.0" height="16.0" rx="2.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1155.0 280.0 V274.0 A7.0 7.0 0 0 1 1169.0 274.0 V280.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1204" y="280" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">OpenID Connect</text>
+<text x="1204" y="306" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Code exchange: ID token with an opaque user ID</text>
+<text x="1204" y="328" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Public keys (JWKS), silent re-login, name lookup API</text>
+<rect x="1940" y="240" width="1180" height="150" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1956" y="256" width="52" height="52" rx="8.32" fill="#232F3E"/>
+<circle cx="1973.0" cy="290.0" r="5.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1991.0" cy="290.0" r="5.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1982.0" cy="273.0" r="5.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1979.0 277.0 L1975.0 285.0 M1985.0 277.0 L1989.0 285.0 M1978.0 290.0 H1986.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2024" y="280" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Scan event sender</text>
+<text x="2024" y="306" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Calls our scan intake API on every scan (server to server)</text>
+<text x="2024" y="328" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Signed (HMAC), unique scan ID, retried if our API is busy</text>
+<rect x="540" y="480" width="2620" height="1160" rx="14" fill="#FFFFFF" stroke="#232F3E" stroke-width="2.4"/>
+<rect x="560" y="464" width="523.5999999999999" height="34" rx="6" fill="#232F3E" stroke="#232F3E" stroke-width="0"/>
+<text x="578" y="488" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="start">AWS Cloud  |  INFOTEL 2026 account (domaininfotel.lk)</text>
+<rect x="570" y="560" width="380" height="920" rx="14" fill="none" stroke="#7D8998" stroke-width="1.6" stroke-dasharray="3 6"/>
+<rect x="590" y="544" width="64" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="604" y="566" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">Edge</text>
+<rect x="590" y="590" width="340" height="160" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="606" y="606" width="52" height="52" rx="8.32" fill="#8C4FFF"/>
+<circle cx="632.0" cy="632.0" r="15.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="632.0" cy="632.0" rx="6.0" ry="15.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M617.0 632.0 H647.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="674" y="630" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">CloudFront</text>
+<text x="674" y="656" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">HTTPS, WebSocket</text>
+<text x="674" y="678" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Leaderboard cache (3 to 5 s)</text>
+<rect x="590" y="780" width="340" height="340" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="606" y="796" width="52" height="52" rx="8.32" fill="#7AA116"/>
+<ellipse cx="632.0" cy="812.0" rx="14.0" ry="5.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M618.0 812.0 L622.0 835.0 Q632.0 840.0 642.0 835.0 L646.0 812.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="674" y="820" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">S3 web apps</text>
+<text x="674" y="846" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">LKDR Games app</text>
+<text x="674" y="868" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Treasure Hunt app</text>
+<text x="674" y="890" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Venue screen app</text>
+<text x="674" y="912" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">LKDR Admin Dashboard</text>
+<rect x="980" y="560" width="280" height="920" rx="14" fill="none" stroke="#7D8998" stroke-width="1.6" stroke-dasharray="3 6"/>
+<rect x="1000" y="544" width="55" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="1014" y="566" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">API</text>
+<rect x="1000" y="590" width="240" height="860" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1016" y="606" width="52" height="52" rx="8.32" fill="#E7157B"/>
+<path d="M1034.0 619.0 L1025.0 632.0 L1034.0 645.0 M1050.0 619.0 L1059.0 632.0 L1050.0 645.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="1037.0" cy="632.0" r="1.8" fill="#FFFFFF"/>
+<circle cx="1042.0" cy="632.0" r="1.8" fill="#FFFFFF"/>
+<circle cx="1047.0" cy="632.0" r="1.8" fill="#FFFFFF"/>
+<text x="1084" y="630" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#232F3E" text-anchor="start">API</text>
+<text x="1084" y="656" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Gateway</text>
+<text x="1084" y="678" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start"></text>
+<text x="1084" y="700" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">HTTP API</text>
+<text x="1084" y="722" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">WebSocket API</text>
+<text x="1084" y="744" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Throttling</text>
+<rect x="1290" y="560" width="400" height="920" rx="14" fill="none" stroke="#7D8998" stroke-width="1.6" stroke-dasharray="3 6"/>
+<rect x="1310" y="544" width="163" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="1324" y="566" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">Shared platform</text>
+<rect x="1483" y="546" width="69.19999999999999" height="28" rx="14" fill="#0E7490" stroke="#0E7490" stroke-width="0"/>
+<text x="1493" y="565" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="start">SHARED</text>
+<rect x="1310" y="590" width="360" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1326" y="606" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M1341.0 646.0 L1351.0 630.0 M1343.0 617.0 H1349.0 L1361.0 645.0 H1366.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1394" y="630" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Auth</text>
+<text x="1394" y="656" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">OIDC callback, session cookie</text>
+<rect x="1310" y="750" width="360" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1326" y="766" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M1341.0 806.0 L1351.0 790.0 M1343.0 777.0 H1349.0 L1361.0 805.0 H1366.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1394" y="790" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Scan intake</text>
+<text x="1394" y="816" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Verifies and stores each scan</text>
+<rect x="1310" y="910" width="360" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1326" y="926" width="52" height="52" rx="8.32" fill="#E7157B"/>
+<circle cx="1352.0" cy="952.0" r="5.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1347.1 948.15 L1338.0 941.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1338.0" cy="941.0" r="2.6" fill="#FFFFFF"/>
+<path d="M1356.9 948.15 L1366.0 941.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1366.0" cy="941.0" r="2.6" fill="#FFFFFF"/>
+<path d="M1347.1 955.85 L1338.0 963.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1338.0" cy="963.0" r="2.6" fill="#FFFFFF"/>
+<path d="M1356.9 955.85 L1366.0 963.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="1366.0" cy="963.0" r="2.6" fill="#FFFFFF"/>
+<text x="1394" y="950" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">EventBridge</text>
+<text x="1394" y="976" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Routes scan events by logo</text>
+<rect x="1310" y="1070" width="360" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1326" y="1086" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M1341.0 1126.0 L1351.0 1110.0 M1343.0 1097.0 H1349.0 L1361.0 1125.0 H1366.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1394" y="1110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Admin auth</text>
+<text x="1394" y="1136" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Login, roles, lockout</text>
+<rect x="1720" y="560" width="480" height="920" rx="14" fill="none" stroke="#15803D" stroke-width="1.6" stroke-dasharray="3 6"/>
+<rect x="1740" y="544" width="244" height="32" rx="6" fill="#FFFFFF" stroke="#15803D" stroke-width="1.4"/>
+<text x="1754" y="566" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#15803D" text-anchor="start">Project B: Treasure Hunt</text>
+<rect x="1740" y="590" width="440" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1756" y="606" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M1771.0 646.0 L1781.0 630.0 M1773.0 617.0 H1779.0 L1791.0 645.0 H1796.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1824" y="630" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Visitor API</text>
+<text x="1824" y="656" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Scan result, my score, leaderboard</text>
+<rect x="1740" y="750" width="440" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1756" y="766" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M1771.0 806.0 L1781.0 790.0 M1773.0 777.0 H1779.0 L1791.0 805.0 H1796.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1824" y="790" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Admin API</text>
+<text x="1824" y="816" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Sessions, stalls, prizes, winners</text>
+<rect x="1740" y="910" width="440" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1756" y="926" width="52" height="52" rx="8.32" fill="#E7157B"/>
+<rect x="1766.0" y="944.0" width="32.0" height="16.0" rx="2.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1776.0 944.0 V960.0 M1786.0 944.0 V960.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1824" y="950" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Scan queue (SQS)</text>
+<text x="1824" y="976" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Stall scans for Treasure Hunt</text>
+<rect x="1740" y="1070" width="440" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1756" y="1086" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M1771.0 1126.0 L1781.0 1110.0 M1773.0 1097.0 H1779.0 L1791.0 1125.0 H1796.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1824" y="1110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Scoring worker</text>
+<text x="1824" y="1136" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Unique stall per session, points</text>
+<text x="1745" y="1250" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Points come only from QuickLook's</text>
+<text x="1745" y="1272" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">server-to-server scan events.</text>
+<rect x="2230" y="560" width="480" height="920" rx="14" fill="none" stroke="#C2410C" stroke-width="1.6" stroke-dasharray="3 6"/>
+<rect x="2250" y="544" width="271" height="32" rx="6" fill="#FFFFFF" stroke="#C2410C" stroke-width="1.4"/>
+<text x="2264" y="566" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#C2410C" text-anchor="start">Project A: LKDR Games Event</text>
+<rect x="2250" y="590" width="440" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="2266" y="606" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M2281.0 646.0 L2291.0 630.0 M2283.0 617.0 H2289.0 L2301.0 645.0 H2306.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2334" y="630" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Visitor API</text>
+<text x="2334" y="656" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Entry, play, result</text>
+<rect x="2250" y="750" width="440" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="2266" y="766" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M2281.0 806.0 L2291.0 790.0 M2283.0 777.0 H2289.0 L2301.0 805.0 H2306.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2334" y="790" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Admin API</text>
+<text x="2334" y="816" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Sessions, prize allocation, collection</text>
+<rect x="2250" y="910" width="440" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="2266" y="926" width="52" height="52" rx="8.32" fill="#ED7100"/>
+<path d="M2281.0 966.0 L2291.0 950.0 M2283.0 937.0 H2289.0 L2301.0 965.0 H2306.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2334" y="950" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Screen API</text>
+<text x="2334" y="976" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">WebSocket sync with the stall screen</text>
+<rect x="2250" y="1070" width="440" height="130" rx="10" fill="#FFF7ED" stroke="#C2410C" stroke-width="1.4"/>
+<text x="2270" y="1102" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#232F3E" text-anchor="start">Spin the Wheel and Lucky Dip</text>
+<text x="2270" y="1128" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">One play per user per session,</text>
+<text x="2270" y="1150" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">either game. Weighted random</text>
+<text x="2270" y="1172" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">draw from the session's prizes.</text>
+<rect x="2740" y="560" width="400" height="920" rx="14" fill="none" stroke="#7D8998" stroke-width="1.6" stroke-dasharray="3 6"/>
+<rect x="2760" y="544" width="199" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="2774" y="566" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">Data and operations</text>
+<rect x="2760" y="590" width="360" height="340" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="2776" y="606" width="52" height="52" rx="8.32" fill="#C925D1"/>
+<ellipse cx="2802.0" cy="620.0" rx="13.0" ry="4.5" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2789.0 620.0 V644.0 Q2802.0 650.0 2815.0 644.0 V620.0 M2789.0 632.0 Q2802.0 638.0 2815.0 632.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2844" y="630" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">DynamoDB</text>
+<text x="2844" y="656" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">platform table</text>
+<text x="2844" y="678" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">games-event table</text>
+<text x="2844" y="700" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">treasure-hunt table</text>
+<text x="2844" y="722" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start"></text>
+<text x="2844" y="744" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Opaque QuickLook IDs only,</text>
+<text x="2844" y="766" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">no personal data</text>
+<rect x="2760" y="960" width="360" height="140" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="2776" y="976" width="52" height="52" rx="8.32" fill="#E7157B"/>
+<circle cx="2802.0" cy="1002.0" r="14.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2802.0 994.0 V1002.0 L2809.0 1006.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2844" y="1000" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">Scheduler</text>
+<text x="2844" y="1026" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Opens and closes sessions,</text>
+<text x="2844" y="1048" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">releases expired locks</text>
+<rect x="2760" y="1130" width="360" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="2776" y="1146" width="52" height="52" rx="8.32" fill="#E7157B"/>
+<circle cx="2795.0" cy="1172.0" r="7.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2802.0 1172.0 H2818.0 M2812.0 1172.0 V1178.0 M2817.0 1172.0 V1178.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2844" y="1170" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#232F3E" text-anchor="start">SSM Parameter Store</text>
+<text x="2844" y="1196" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Secrets (encrypted)</text>
+<rect x="2760" y="1290" width="360" height="130" rx="10" fill="#FFFFFF" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="2776" y="1306" width="52" height="52" rx="8.32" fill="#E7157B"/>
+<circle cx="2799.0" cy="1329.0" r="11.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2807.0 1337.0 L2817.0 1347.0 M2792.0 1332.0 L2797.0 1327.0 L2801.0 1331.0 L2806.0 1324.0" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="2844" y="1330" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#232F3E" text-anchor="start">CloudWatch</text>
+<text x="2844" y="1356" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#545B64" text-anchor="start">Logs, metrics, alarms</text>
+<path d="M305 300 H578" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="440" cy="300" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="440" y="305.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+<path d="M578 360 H307" fill="none" stroke="#232F3E" stroke-width="2" stroke-dasharray="9 6" marker-end="url(#mA)"/>
+<circle cx="440" cy="360" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="440" y="365.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+<path d="M305 395 H520 V610 H588" fill="none" stroke="#232F3E" stroke-width="2" marker-start="url(#mA)" marker-end="url(#mA)"/>
+<circle cx="520" cy="470" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="520" y="475.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">5</text>
+<path d="M345 640 H588" fill="none" stroke="#232F3E" stroke-width="2" marker-start="url(#mA)" marker-end="url(#mA)"/>
+<circle cx="440" cy="640" r="15" fill="#C2410C" stroke="#FFFFFF" stroke-width="3"/>
+<text x="440" y="645.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">8</text>
+<path d="M345 850 H545 V720 H588" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="440" cy="850" r="17" fill="#15803D" stroke="#FFFFFF" stroke-width="3"/>
+<text x="440" y="855.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">11</text>
+<path d="M335 1150 H545 V1400 H998" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="440" cy="1150" r="17" fill="#7E22CE" stroke="#FFFFFF" stroke-width="3"/>
+<text x="440" y="1155.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">12</text>
+<path d="M760 752 V778" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<path d="M930 670 H998" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<path d="M1620 588 V392" fill="none" stroke="#232F3E" stroke-width="3.6" marker-start="url(#mS)" marker-end="url(#mS)"/>
+<circle cx="1620" cy="455" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1620" y="460.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">6</text>
+<path d="M2000 392 V455 H1705 V815 H1672" fill="none" stroke="#232F3E" stroke-width="3.6" marker-end="url(#mS)"/>
+<circle cx="1850" cy="455" r="15" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1850" y="460.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+<path d="M1490 882 V908" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="1450" cy="895" r="15" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1450" y="900.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+<path d="M1672 975 H1738" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="1705" cy="975" r="15" fill="#15803D" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1705" y="980.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">9</text>
+<path d="M1960 1042 V1068" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<path d="M1240 1430 H1262 V1560 H2470" fill="none" stroke="#232F3E" stroke-width="2"/>
+<path d="M1490 1560 V1482" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<path d="M1960 1560 V1482" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<path d="M2470 1560 V1482" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="1960" cy="1525" r="17" fill="#15803D" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1960" y="1530.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">10</text>
+<circle cx="2470" cy="1525" r="15" fill="#C2410C" stroke="#FFFFFF" stroke-width="3"/>
+<text x="2470" y="1530.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">7</text>
+<text x="1270" y="1590" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#545B64" text-anchor="start">API routes (HTTP and WebSocket)</text>
+<path d="M2712 680 H2758" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="2735" cy="640" r="17" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="2735" y="645.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">13</text>
+<path d="M2100 558 V525 H2940 V588" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<path d="M2758 1030 H2712" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<circle cx="2735" cy="1070" r="17" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="2735" y="1075.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">14</text>
+<rect x="540" y="1700" width="2620" height="150" rx="14" fill="none" stroke="#7D8998" stroke-width="1.6" stroke-dasharray="3 6"/>
+<rect x="560" y="1684" width="82" height="32" rx="6" fill="#FFFFFF" stroke="#7D8998" stroke-width="1.4"/>
+<text x="574" y="1706" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#232F3E" text-anchor="start">Legend</text>
+<path d="M570 1755 H650" fill="none" stroke="#232F3E" stroke-width="2" marker-end="url(#mA)"/>
+<text x="665" y="1761" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Request (HTTPS)</text>
+<path d="M570 1800 H650" fill="none" stroke="#232F3E" stroke-width="2" stroke-dasharray="9 6" marker-end="url(#mA)"/>
+<text x="665" y="1806" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Response or redirect</text>
+<path d="M900 1755 H980" fill="none" stroke="#232F3E" stroke-width="3.6" marker-end="url(#mS)"/>
+<text x="995" y="1761" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Server to server (HTTPS)</text>
+<path d="M900 1800 H960" fill="none" stroke="#7D8998" stroke-width="2" stroke-dasharray="12 8"/>
+<text x="995" y="1806" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Trust boundary</text>
+<path d="M1260 1755 H1320" fill="none" stroke="#7D8998" stroke-width="1.6" stroke-dasharray="3 6"/>
+<text x="1335" y="1761" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Logical group or project</text>
+<circle cx="1700" cy="1750" r="13" fill="#1D4ED8"/>
+<text x="1724" y="1755" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Visitor login</text>
+<circle cx="2180" cy="1750" r="13" fill="#0E7490"/>
+<text x="2204" y="1755" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Shared platform</text>
+<circle cx="2660" cy="1750" r="13" fill="#C2410C"/>
+<text x="2684" y="1755" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Project A: LKDR Games Event</text>
+<circle cx="1700" cy="1795" r="13" fill="#15803D"/>
+<text x="1724" y="1800" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">Project B: Treasure Hunt</text>
+<circle cx="2180" cy="1795" r="13" fill="#7E22CE"/>
+<text x="2204" y="1800" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#232F3E" text-anchor="start">LKDR Admin Dashboard</text>
+<text x="40" y="1930" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#232F3E" text-anchor="start">Flow details</text>
+<rect x="40" y="1960" width="1540" height="34" fill="#F2F3F3"/>
+<text x="56" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">#</text>
+<text x="106" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">From</text>
+<text x="370" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">To</text>
+<text x="640" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">What happens</text>
+<path d="M40 1994 H1580" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="72" cy="2016" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="72" y="2021.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+<text x="106" y="2022" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Visitor phone</text>
+<text x="370" y="2022" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">QuickLook</text>
+<text x="640" y="2022" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Scans a game or stall logo and signs in with a QuickLook account.</text>
+<path d="M40 2038 H1580" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="72" cy="2060" r="15" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="72" y="2065.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+<text x="106" y="2066" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">QuickLook scan event sender</text>
+<text x="370" y="2066" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Scan intake</text>
+<text x="640" y="2066" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Posts the scan event (opaque user ID, logo ID, scan ID, time), signed with HMAC.</text>
+<path d="M40 2082 H1580" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="72" cy="2104" r="15" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="72" y="2109.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+<text x="106" y="2110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Scan intake</text>
+<text x="370" y="2110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">EventBridge, DynamoDB</text>
+<text x="640" y="2110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Checks the signature, stores the scan once, publishes scan.received with the logo type.</text>
+<path d="M40 2126 H1580" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="72" cy="2148" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="72" y="2153.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+<text x="106" y="2154" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">QuickLook</text>
+<text x="370" y="2154" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Visitor phone</text>
+<text x="640" y="2154" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Redirects to our callback with a one-time code, the scan ID and a state value.</text>
+<path d="M40 2170 H1580" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="72" cy="2192" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="72" y="2197.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">5</text>
+<text x="106" y="2198" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Visitor phone</text>
+<text x="370" y="2198" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">CloudFront, API, Auth</text>
+<text x="640" y="2198" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Opens the callback and then the game or hunt pages and APIs over HTTPS.</text>
+<path d="M40 2214 H1580" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="72" cy="2236" r="15" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="3"/>
+<text x="72" y="2241.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">6</text>
+<text x="106" y="2242" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Auth</text>
+<text x="370" y="2242" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">QuickLook OpenID Connect</text>
+<text x="640" y="2242" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Swaps the code for an ID token, sets a short signed session cookie. Silent re-login when it expires.</text>
+<path d="M40 2258 H1580" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="72" cy="2280" r="15" fill="#C2410C" stroke="#FFFFFF" stroke-width="3"/>
+<text x="72" y="2285.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">7</text>
+<text x="106" y="2286" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">LKDR Games app</text>
+<text x="370" y="2286" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Project A Visitor API</text>
+<text x="640" y="2286" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Creates the entry (scan, session, one play per session, screen lock), plays, returns prize and reference.</text>
+<rect x="40" y="1960" width="1540" height="342" rx="0" fill="none" stroke="#D5DBDB" stroke-width="1.5"/>
+<rect x="1620" y="1960" width="1540" height="34" fill="#F2F3F3"/>
+<text x="1636" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">#</text>
+<text x="1686" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">From</text>
+<text x="1950" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">To</text>
+<text x="2220" y="1983" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#545B64" text-anchor="start">What happens</text>
+<path d="M1620 1994 H3160" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="1652" cy="2016" r="15" fill="#C2410C" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1652" y="2021.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">8</text>
+<text x="1686" y="2022" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Screen API</text>
+<text x="1950" y="2022" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Stall screen</text>
+<text x="2220" y="2022" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">WebSocket messages: now playing, animation target, result, ready.</text>
+<path d="M1620 2038 H3160" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="1652" cy="2060" r="15" fill="#15803D" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1652" y="2065.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">9</text>
+<text x="1686" y="2066" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">EventBridge</text>
+<text x="1950" y="2066" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">SQS, Scoring worker</text>
+<text x="2220" y="2066" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Stall scans go to the Treasure Hunt queue. The worker adds points once per stall per session.</text>
+<path d="M1620 2082 H3160" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="1652" cy="2104" r="17" fill="#15803D" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1652" y="2109.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">10</text>
+<text x="1686" y="2110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Treasure Hunt app</text>
+<text x="1950" y="2110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Project B Visitor API</text>
+<text x="2220" y="2110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Shows the scan result, my score and rank, and the leaderboard.</text>
+<path d="M1620 2126 H3160" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="1652" cy="2148" r="17" fill="#15803D" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1652" y="2153.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">11</text>
+<text x="1686" y="2154" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Leaderboard screen</text>
+<text x="1950" y="2154" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">CloudFront</text>
+<text x="2220" y="2154" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Reads the leaderboard every few seconds from the CloudFront cache.</text>
+<path d="M1620 2170 H3160" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="1652" cy="2192" r="17" fill="#7E22CE" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1652" y="2197.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">12</text>
+<text x="1686" y="2198" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">LKDR Admin Dashboard</text>
+<text x="1950" y="2198" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Admin auth, Admin APIs</text>
+<text x="2220" y="2198" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Admin login with roles, then Project A and Project B admin tabs.</text>
+<path d="M1620 2214 H3160" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="1652" cy="2236" r="17" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1652" y="2241.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">13</text>
+<text x="1686" y="2242" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Project services</text>
+<text x="1950" y="2242" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">DynamoDB</text>
+<text x="2220" y="2242" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Each project uses its own table. Only opaque QuickLook IDs are stored.</text>
+<path d="M1620 2258 H3160" fill="none" stroke="#D5DBDB" stroke-width="1"/>
+<circle cx="1652" cy="2280" r="17" fill="#0E7490" stroke="#FFFFFF" stroke-width="3"/>
+<text x="1652" y="2285.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">14</text>
+<text x="1686" y="2286" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#232F3E" text-anchor="start">Scheduler</text>
+<text x="1950" y="2286" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Project A and B</text>
+<text x="2220" y="2286" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#232F3E" text-anchor="start">Opens and closes sessions on time and releases expired screen locks.</text>
+<rect x="1620" y="1960" width="1540" height="342" rx="0" fill="none" stroke="#D5DBDB" stroke-width="1.5"/>
+</svg>

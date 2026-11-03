@@ -1,0 +1,22 @@
+{
+  "name": "lkdr-web-infra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hosting for the four LKDR web apps (S3 + CloudFront). One stack per app, deployed on its own.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@types/node": "^22.15.0",
+    "aws-cdk": "^2.1018.0",
+    "aws-cdk-lib": "^2.200.0",
+    "constructs": "^10.4.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3"
+  }
+}

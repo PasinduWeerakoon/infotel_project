@@ -1,0 +1,438 @@
+openapi: 3.1.0
+info:
+  title: Treasure Hunt API (Project B)
+  version: 1.0.0-draft
+  description: |
+    Treasure Hunt visitor and admin endpoints. Points are awarded only by the scoring worker
+    from QuickLook scan events (see 06-quicklook-integration). Shared auth endpoints are in
+    the Project A specification.
+servers:
+  - url: https://api.dev.example.lk
+    description: Development (domain to be confirmed)
+  - url: https://api.example.lk
+    description: Production (domain to be confirmed)
+tags:
+  - name: Visitor
+  - name: Admin
+components:
+  securitySchemes:
+    visitorSession:
+      type: apiKey
+      in: cookie
+      name: lkdr_session
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: lkdr_admin
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, example: hunt_20261102_1 }
+    Rank:
+      name: rank
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [SCAN_NOT_FOUND, SCAN_NOT_YOURS, NO_SESSION, SESSION_STARTED, ALREADY_COLLECTED,
+                     VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND]
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    Session:
+      type: object
+      properties:
+        sessionId: { type: string }
+        name: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        state: { type: string, enum: [scheduled, active, ended] }
+        pointsPerStall: { type: integer, default: 10 }
+        winners: { type: integer, default: 3 }
+        allowPreviousWinners: { type: boolean, default: false }
+    SessionInput:
+      type: object
+      required: [name, date, startsAt, endsAt]
+      properties:
+        name: { type: string }
+        date: { type: string, format: date }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        pointsPerStall: { type: integer, minimum: 1, default: 10 }
+        winners: { type: integer, minimum: 1, default: 3 }
+        allowPreviousWinners: { type: boolean, default: false }
+    Stall:
+      type: object
+      properties:
+        stallId: { type: string, example: stall_017 }
+        name: { type: string }
+        stallNo: { type: string }
+        logoId: { type: string, description: QuickLook logo ID }
+        offeringsUrl: { type: string, format: uri }
+        active: { type: boolean }
+    ScanResult:
+      type: object
+      properties:
+        scanId: { type: string }
+        state: { type: string, enum: [pending, scored, duplicate, outside-session, not-participating] }
+        stall: { $ref: '#/components/schemas/Stall' }
+        pointsAdded: { type: integer }
+        totalPoints: { type: integer }
+        rank: { type: [integer, 'null'] }
+        playerNumber: { type: integer }
+    Me:
+      type: object
+      properties:
+        sessionId: { type: string }
+        playerNumber: { type: integer }
+        displayName: { type: string, description: From the session cookie, not stored }
+        points: { type: integer }
+        stalls: { type: integer }
+        rank: { type: [integer, 'null'] }
+    LeaderboardRow:
+      type: object
+      properties:
+        rank: { type: integer }
+        playerNumber: { type: integer }
+        points: { type: integer }
+        stalls: { type: integer }
+    Leaderboard:
+      type: object
+      properties:
+        sessionId: { type: string }
+        state: { type: string, enum: [scheduled, active, ended] }
+        endsAt: { type: string, format: date-time }
+        serverTime: { type: string, format: date-time }
+        top:
+          type: array
+          items: { $ref: '#/components/schemas/LeaderboardRow' }
+    PrizeRank:
+      type: object
+      required: [rankFrom, rankTo, prizeName, quantity]
+      properties:
+        rankFrom: { type: integer, minimum: 1 }
+        rankTo: { type: integer, minimum: 1 }
+        prizeName: { type: string }
+        quantity: { type: integer, minimum: 1 }
+    Winner:
+      type: object
+      properties:
+        rank: { type: integer }
+        playerNumber: { type: integer }
+        points: { type: integer }
+        prizeName: { type: string }
+        status: { type: string, enum: [provisional, confirmed, disqualified] }
+        flags:
+          type: array
+          items: { type: string }
+        collectedAt: { type: [string, 'null'], format: date-time }
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Business rule prevents the action
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+paths:
+  /hunt/v1/status:
+    get:
+      tags: [Visitor]
+      summary: Current or next session and server time
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  serverTime: { type: string, format: date-time }
+                  currentSession: { $ref: '#/components/schemas/Session' }
+                  nextSession: { $ref: '#/components/schemas/Session' }
+  /hunt/v1/scans/{scanId}/result:
+    get:
+      tags: [Visitor]
+      summary: Result of a stall scan (waits up to 3 seconds while pending)
+      security: [{ visitorSession: [] }]
+      parameters:
+        - { name: scanId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanResult' }
+        '403':
+          description: Scan belongs to another user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /hunt/v1/me:
+    get:
+      tags: [Visitor]
+      summary: The visitor's score and rank in the current session
+      security: [{ visitorSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { description: Not signed in }
+  /hunt/v1/leaderboard:
+    get:
+      tags: [Visitor]
+      summary: Top N for a session (cached 3 to 5 seconds at CloudFront)
+      parameters:
+        - { name: sessionId, in: query, schema: { type: string } }
+        - { name: top, in: query, schema: { type: integer, default: 10, maximum: 50 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Leaderboard' }
+  /admin/v1/hunt/sessions:
+    get:
+      tags: [Admin]
+      summary: List sessions
+      security: [{ adminSession: [] }]
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Session' }
+    post:
+      tags: [Admin]
+      summary: Create a session (no overlap on the same day)
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionInput' }
+      responses:
+        '201': { description: Created }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/hunt/sessions/{sessionId}:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [Admin]
+      summary: Read a session
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+    put:
+      tags: [Admin]
+      summary: Update a session
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionInput' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Admin]
+      summary: Delete a session that has not started
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Deleted }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/hunt/sessions/{sessionId}/start:
+    post:
+      tags: [Admin]
+      summary: Start a session early
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200': { description: Started }
+  /admin/v1/hunt/sessions/{sessionId}/end:
+    post:
+      tags: [Admin]
+      summary: End a session early and freeze standings
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200': { description: Ended }
+  /admin/v1/hunt/sessions/{sessionId}/prizes:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [Admin]
+      summary: Prizes per rank
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PrizeRank' }
+    put:
+      tags: [Admin]
+      summary: Set prizes per rank
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/PrizeRank' }
+      responses:
+        '200': { description: Saved }
+  /admin/v1/hunt/stalls:
+    get:
+      tags: [Admin]
+      summary: List stalls
+      security: [{ adminSession: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Stall' }
+    post:
+      tags: [Admin]
+      summary: Add a stall and register its QuickLook logo ID
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Stall' }
+      responses:
+        '201': { description: Created }
+  /admin/v1/hunt/stalls/{stallId}:
+    parameters:
+      - { name: stallId, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [Admin]
+      summary: Update a stall
+      security: [{ adminSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Stall' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Admin]
+      summary: Deactivate a stall
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Deactivated }
+  /admin/v1/hunt/sessions/{sessionId}/live:
+    get:
+      tags: [Admin]
+      summary: Live view (participants, scans per minute, top 10)
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200': { description: OK }
+  /admin/v1/hunt/sessions/{sessionId}/participants:
+    get:
+      tags: [Admin]
+      summary: Participants with points and flags
+      security: [{ adminSession: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SessionId' }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /admin/v1/hunt/sessions/{sessionId}/participants/{userId}/scans:
+    get:
+      tags: [Admin]
+      summary: Scan history of one participant
+      security: [{ adminSession: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SessionId' }
+        - { name: userId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /admin/v1/hunt/sessions/{sessionId}/winners:
+    get:
+      tags: [Admin]
+      summary: Provisional and confirmed winners
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Winner' }
+  /admin/v1/hunt/sessions/{sessionId}/winners/{rank}/confirm:
+    post:
+      tags: [Admin]
+      summary: Confirm a winner
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/Rank' }]
+      responses:
+        '200': { description: Confirmed }
+  /admin/v1/hunt/sessions/{sessionId}/winners/{rank}/disqualify:
+    post:
+      tags: [Admin]
+      summary: Disqualify a winner (the next rank moves up)
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/Rank' }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: Disqualified }
+  /admin/v1/hunt/sessions/{sessionId}/winners/{rank}/collect:
+    post:
+      tags: [Admin]
+      summary: Mark the prize collected (once)
+      security: [{ adminSession: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/Rank' }]
+      responses:
+        '200': { description: Collected }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/v1/hunt/reports/sessions/{sessionId}:
+    get:
+      tags: [Admin]
+      summary: Standings and scans export (opaque IDs only)
+      security: [{ adminSession: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SessionId' }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200': { description: OK }
