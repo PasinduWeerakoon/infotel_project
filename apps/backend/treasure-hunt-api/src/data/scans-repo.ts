@@ -2,7 +2,7 @@
  * Every scan QuickLook sends, kept as received (for checks and disputes), and the event IDs that
  * stop a resent scan from being stored twice.
  */
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { env } from '../config.js';
 import type { ScanRecord } from '../domain/types.js';
 import { db, isConditionFailure } from './db.js';
@@ -27,6 +27,11 @@ export async function rememberEvent(eventId: string): Promise<boolean> {
     if (isConditionFailure(error)) return false;
     throw error;
   }
+}
+
+/** Forgets an event ID whose scan failed, so QuickLook sending it again is counted */
+export async function forgetEvent(eventId: string): Promise<void> {
+  await db.send(new DeleteCommand({ TableName: T(), Key: keys.event(eventId) }));
 }
 
 export async function saveScan(scan: ScanRecord, day: string): Promise<void> {

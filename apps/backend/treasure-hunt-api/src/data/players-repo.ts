@@ -64,111 +64,136 @@ interface LogoScan {
   at: string;
 }
 
-/** Adds one different logo to an existing participant, or returns null when there is none yet */
-async function addStall(scan: LogoScan): Promise<Participant | null> {
+/**
+ * Adds a logo to an existing participant, exactly once: the update only lands when the logo is
+ * not in the participant's counted logo IDs yet. Returns the updated participant, or why not.
+ */
+async function addLogo(
+  scan: LogoScan,
+): Promise<{ added: Participant } | { missing: true } | { repeat: true } | { retry: true }> {
   try {
     const result = await db.send(
       new UpdateCommand({
         TableName: T(),
         Key: keys.participant(scan.sessionId, scan.userId),
         UpdateExpression:
-          'SET fullName = :name, reachedAt = :at, logos = list_append(logos, :logo) ADD stalls :one, points :points, totalScans :one',
-        ConditionExpression: 'attribute_exists(PK)',
+          'SET fullName = :name, reachedAt = :at, logos = list_append(logos, :logo) ADD stalls :one, points :points, totalScans :one, logoIds :ids',
+        ConditionExpression: 'attribute_exists(PK) AND NOT contains(logoIds, :id)',
         ExpressionAttributeValues: {
           ':name': scan.userName,
           ':at': scan.at,
           ':logo': [{ logoId: scan.logoId, firstScannedAt: scan.at }],
           ':one': 1,
           ':points': scan.pointsPerStall,
+          ':ids': new Set([scan.logoId]),
+          ':id': scan.logoId,
         },
         ReturnValues: 'ALL_NEW',
       }),
     );
-    return clean<Participant>(result.Attributes) ?? null;
+    return { added: clean<Participant>(result.Attributes) as Participant };
   } catch (error) {
-    if (isConditionFailure(error)) return null;
-    throw error;
+    if (!isConditionFailure(error)) throw error;
   }
+  // The condition failed: the participant did not exist, or the logo had already counted. Look
+  // again: a parallel scan may have created the participant since, so only a logo really in the
+  // counted set is a repeat. Anything else is tried again.
+  const result = await db.send(
+    new GetCommand({
+      TableName: T(),
+      Key: keys.participant(scan.sessionId, scan.userId),
+      ProjectionExpression: 'logoIds, PK',
+      ConsistentRead: true,
+    }),
+  );
+  if (!result.Item) return { missing: true };
+  const counted = result.Item.logoIds as Set<string> | undefined;
+  return counted?.has(scan.logoId) ? { repeat: true } : { retry: true };
+}
+
+/** Creates the participant once. Only the put that creates it takes a player number (no gaps). */
+async function createParticipant(scan: LogoScan): Promise<void> {
+  const created = await putIfNew({
+    ...keys.participant(scan.sessionId, scan.userId),
+    sessionId: scan.sessionId,
+    userId: scan.userId,
+    playerNumber: 0,
+    fullName: scan.userName,
+    stalls: 0,
+    points: 0,
+    totalScans: 0,
+    reachedAt: scan.at,
+    logos: [],
+    disqualified: false,
+    winnerRank: null,
+  });
+  if (created) await assignPlayerNumber(scan.sessionId, scan.userId);
+}
+
+/** Gives the participant just created (#0) the next player number. Only the creating put calls it */
+async function assignPlayerNumber(sessionId: string, userId: string): Promise<void> {
+  await db
+    .send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: keys.participant(sessionId, userId),
+        UpdateExpression: 'SET playerNumber = :n',
+        ConditionExpression: 'playerNumber = :zero',
+        ExpressionAttributeValues: { ':n': await nextPlayerNumber(sessionId), ':zero': 0 },
+      }),
+    )
+    .catch(ignoreConditionFailure);
+}
+
+/** The leaderboard key follows the count. Only the write for the latest count lands. */
+async function syncLeaderboardKey(p: Participant): Promise<void> {
+  await db
+    .send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: keys.participant(p.sessionId, p.userId),
+        UpdateExpression: 'SET GSI1PK = :pk, GSI1SK = :sk',
+        ConditionExpression: 'stalls = :stalls',
+        ExpressionAttributeValues: {
+          ':pk': `LB#${p.sessionId}`,
+          ':sk': leaderboardKey(p.stalls, p.reachedAt, p.userId),
+          ':stalls': p.stalls,
+        },
+      }),
+    )
+    .catch(ignoreConditionFailure);
 }
 
 /**
- * Counts one scan of an event logo. The first scan of a logo by a visitor in a session adds a
- * stall (a conditional write, so repeats and scans sent in parallel never count twice). Returns
- * whether it counted.
+ * Counts one scan of an event logo: the first scan of a logo by a visitor in a session adds a
+ * stall, exactly once, even when scans arrive in parallel or a failed scan is sent again.
+ * A repeat adds to the scan total and repairs the leaderboard key if an earlier failed scan left
+ * it behind, so a retry always ends in the right state.
  */
 export async function recordLogoScan(scan: LogoScan): Promise<'counted' | 'repeat'> {
-  const first = await putIfNew({ ...keys.visit(scan.sessionId, scan.userId, scan.logoId), at: scan.at });
-  if (!first) {
-    // A repeat arriving together with the first scan may find the participant not created yet
-    for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        await db.send(
-          new UpdateCommand({
-            TableName: T(),
-            Key: keys.participant(scan.sessionId, scan.userId),
-            UpdateExpression: 'SET fullName = :name ADD totalScans :one',
-            ConditionExpression: 'attribute_exists(PK)',
-            ExpressionAttributeValues: { ':name': scan.userName, ':one': 1 },
-          }),
-        );
-        break;
-      } catch (error) {
-        ignoreConditionFailure(error);
-        await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
-      }
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const outcome = await addLogo(scan);
+    if ('added' in outcome) {
+      await syncLeaderboardKey(outcome.added);
+      return 'counted';
     }
-    return 'repeat';
-  }
-
-  let participant = await addStall(scan);
-  if (!participant) {
-    // A new visitor in this session. If another scan of theirs creates them at the same moment,
-    // only one put lands, and only that one takes a player number (so numbers have no gaps).
-    const created = await putIfNew({
-      ...keys.participant(scan.sessionId, scan.userId),
-      sessionId: scan.sessionId,
-      userId: scan.userId,
-      playerNumber: 0,
-      fullName: scan.userName,
-      stalls: 0,
-      points: 0,
-      totalScans: 0,
-      reachedAt: scan.at,
-      logos: [],
-      disqualified: false,
-      winnerRank: null,
-    });
-    if (created) {
-      await db.send(
+    if ('repeat' in outcome) {
+      const result = await db.send(
         new UpdateCommand({
           TableName: T(),
           Key: keys.participant(scan.sessionId, scan.userId),
-          UpdateExpression: 'SET playerNumber = :n',
-          ExpressionAttributeValues: { ':n': await nextPlayerNumber(scan.sessionId) },
+          UpdateExpression: 'SET fullName = :name ADD totalScans :one',
+          ExpressionAttributeValues: { ':name': scan.userName, ':one': 1 },
+          ReturnValues: 'ALL_NEW',
         }),
       );
+      const participant = clean<Participant>(result.Attributes) as Participant;
+      await syncLeaderboardKey(participant);
+      return 'repeat';
     }
-    participant = await addStall(scan);
+    if ('missing' in outcome) await createParticipant(scan); // then add the logo on the next attempt
   }
-  if (participant) {
-    // The leaderboard key follows the count. Only the write for the latest count lands.
-    await db
-      .send(
-        new UpdateCommand({
-          TableName: T(),
-          Key: keys.participant(scan.sessionId, scan.userId),
-          UpdateExpression: 'SET GSI1PK = :pk, GSI1SK = :sk',
-          ConditionExpression: 'stalls = :stalls',
-          ExpressionAttributeValues: {
-            ':pk': `LB#${scan.sessionId}`,
-            ':sk': leaderboardKey(participant.stalls, participant.reachedAt),
-            ':stalls': participant.stalls,
-          },
-        }),
-      )
-      .catch(ignoreConditionFailure);
-  }
-  return 'counted';
+  throw new Error('Could not count the scan, it is sent again by QuickLook');
 }
 
 export async function getStats(sessionId: string): Promise<SessionStats> {
@@ -215,7 +240,7 @@ export async function rankOf(participant: Participant): Promise<number> {
         FilterExpression: 'disqualified <> :true',
         ExpressionAttributeValues: {
           ':pk': `LB#${participant.sessionId}`,
-          ':mine': leaderboardKey(participant.stalls, participant.reachedAt),
+          ':mine': leaderboardKey(participant.stalls, participant.reachedAt, participant.userId),
           ':true': true,
         },
         Select: 'COUNT',

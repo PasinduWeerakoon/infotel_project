@@ -86,7 +86,7 @@ await wait(1000);
 r = await scan(c, 'Chathura Dias', 1);
 check('H17', 'a scan after the end is stored but does not count', r.data?.result === 'no-session', JSON.stringify(r));
 let winners = [];
-for (let i = 0; i < 10 && winners.length === 0; i++) {
+for (let i = 0; i < 15 && winners.length === 0; i++) {
   await wait(2000);
   winners = (await su.call('GET', `${S}/winners`)).data?.items ?? [];
 }

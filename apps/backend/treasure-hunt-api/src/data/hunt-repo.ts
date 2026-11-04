@@ -38,13 +38,14 @@ export const listAllSessions = () =>
   });
 
 // Read on every visitor request, so cached for 5 seconds per Lambda instance
+export const SESSION_CACHE_MS = 5000;
 let cache: { key: string; sessions: HuntSession[]; at: number } | undefined;
 
 /** Sessions of yesterday, today and tomorrow (enough for scoring, "next session" and late results). */
 export async function nearbySessions(): Promise<HuntSession[]> {
   const days = [-1, 0, 1].map((offset) => colomboDate(new Date(Date.now() + offset * 86_400_000)));
   const key = days.join('|');
-  if (cache && cache.key === key && Date.now() - cache.at < 5000) return cache.sessions;
+  if (cache && cache.key === key && Date.now() - cache.at < SESSION_CACHE_MS) return cache.sessions;
   const sessions = (await Promise.all(days.map(listSessionsByDate))).flat();
   cache = { key, sessions, at: Date.now() };
   return sessions;

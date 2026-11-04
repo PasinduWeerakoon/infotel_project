@@ -27,7 +27,8 @@ const TAG_BYTES = 16;
 const payloadSchema = z.object({
   logo_id: z.string().trim().min(1).max(100),
   user_id: z.string().trim().min(1).max(100),
-  user_name: z.string().trim().max(120).optional().default(''),
+  // Any reasonable name is accepted and shortened to 60 characters, so a long name never loses a scan
+  user_name: z.string().trim().max(1000).optional().default(''),
   event_id: z.string().trim().min(1).max(100).optional(),
   scanned_at: z.union([z.string(), z.number()]).optional(),
 });

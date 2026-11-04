@@ -1,11 +1,11 @@
 /**
- * Item keys of the `treasure-hunt` table (docs: 04-treasure-hunt/data-model.md).
+ * Item keys of the `treasure-hunt` table (docs: 04-treasure-hunt/data-model.md). A participant keeps
+ * its counted logo IDs in a string set (`logoIds`): a logo is added only when it is not in it yet.
  *
  * | Item        | PK                    | SK                              | Index                               |
  * |-------------|-----------------------|---------------------------------|-------------------------------------|
  * | Session     | SESSION#{sessionId}   | META                            | GSI1: SESSIONS, GSI2: DATE#{date}   |
  * | Participant | SESSION#{sessionId}   | PART#{userId}                   | GSI1: LB#{sessionId} by logos, time |
- * | Visit       | SESSION#{sessionId}   | VISIT#{userId}#{logoId}         | first scan of a logo (counts once)  |
  * | Stats       | SESSION#{sessionId}   | STATS                           | scans received, last scan time      |
  * | Counter     | SESSION#{sessionId}   | COUNTER                         | next player number                  |
  * | Winner      | SESSION#{sessionId}   | WINNER#{rank, 3 digits}         |                                     |
@@ -17,10 +17,6 @@
 export const keys = {
   session: (sessionId: string) => ({ PK: `SESSION#${sessionId}`, SK: 'META' }),
   participant: (sessionId: string, userId: string) => ({ PK: `SESSION#${sessionId}`, SK: `PART#${userId}` }),
-  visit: (sessionId: string, userId: string, logoId: string) => ({
-    PK: `SESSION#${sessionId}`,
-    SK: `VISIT#${userId}#${logoId}`,
-  }),
   stats: (sessionId: string) => ({ PK: `SESSION#${sessionId}`, SK: 'STATS' }),
   counter: (sessionId: string) => ({ PK: `SESSION#${sessionId}`, SK: 'COUNTER' }),
   winner: (sessionId: string, rank: number) => ({
@@ -44,6 +40,8 @@ export function clean<T>(item: Record<string, unknown> | undefined): T | undefin
     GSI2PK: _g2p,
     GSI2SK: _g2s,
     ttl: _ttl,
+    // Counted logo IDs (a string set used only to count each logo once)
+    logoIds: _logoIds,
     ...rest
   } = item;
   return rest as T;

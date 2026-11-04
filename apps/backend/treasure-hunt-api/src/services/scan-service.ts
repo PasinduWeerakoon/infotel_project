@@ -10,9 +10,9 @@ import { env, getHuntScanKey } from '../config.js';
 import { nearbySessions } from '../data/hunt-repo.js';
 import { listEventLogos } from '../data/logos-repo.js';
 import { bumpStats, recordLogoScan } from '../data/players-repo.js';
-import { rememberEvent, saveScan } from '../data/scans-repo.js';
+import { forgetEvent, rememberEvent, saveScan } from '../data/scans-repo.js';
 import { sessionForScan } from '../domain/rules.js';
-import { openScanMessage } from '../domain/scan-message.js';
+import { type ScanMessage, openScanMessage } from '../domain/scan-message.js';
 import type { ScanResult } from '../domain/types.js';
 import { HttpError } from '../lib/http.js';
 import { logger } from '../lib/logger.js';
@@ -29,7 +29,17 @@ export async function receiveScan(data: string): Promise<{ result: ScanResult | 
     throw error;
   }
   if (message.eventId && !(await rememberEvent(message.eventId))) return { result: 'already-received' };
+  try {
+    return { result: await countAndKeep(message) };
+  } catch (error) {
+    // Nothing is lost: the event ID is forgotten, so QuickLook's retry of this scan is counted.
+    // Counting is exactly once, so a retry never adds a logo twice.
+    if (message.eventId) await forgetEvent(message.eventId).catch(() => undefined);
+    throw error;
+  }
+}
 
+async function countAndKeep(message: ScanMessage): Promise<ScanResult> {
   const received = new Date();
   const scanTime = message.scannedAt ?? received;
   const [sessions, logos] = await Promise.all([nearbySessions(), listEventLogos()]);
@@ -64,5 +74,5 @@ export async function receiveScan(data: string): Promise<{ result: ScanResult | 
     },
     colomboDate(received),
   );
-  return { result };
+  return result;
 }

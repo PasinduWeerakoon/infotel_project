@@ -24,6 +24,8 @@ const envSchema = z.object({
   HUNT_SCAN_KEY: z.string().optional(),
   /** A scan message with a scan time older than this is refused */
   SCAN_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
+  /** Winners are worked out this long after a session ends, so scans still on their way land first */
+  FINALIZE_GRACE_SECONDS: z.coerce.number().int().min(0).default(30),
   /** Local only: how often ended sessions are finalized (AWS runs the job every minute) */
   JOB_SECONDS: z.coerce.number().int().min(1).default(60),
 });

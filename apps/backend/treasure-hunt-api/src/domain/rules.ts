@@ -44,14 +44,16 @@ const MAX_STALLS = 999_999;
  * Leaderboard sort key: most different logos first, then whoever reached that count first.
  * Stored as GSI1SK, so DynamoDB returns the top N in order.
  */
-export function leaderboardKey(stalls: number, reachedAt: string): string {
+export function leaderboardKey(stalls: number, reachedAt: string, userId: string): string {
   const behind = MAX_STALLS - Math.min(Math.max(stalls, 0), MAX_STALLS);
-  return `${String(behind).padStart(6, '0')}#${new Date(reachedAt).toISOString()}`;
+  // The user ID breaks a tie in the same millisecond, the same way everywhere
+  return `${String(behind).padStart(6, '0')}#${new Date(reachedAt).toISOString()}#${userId}`;
 }
 
-/** Orders participants like the leaderboard index does. */
+/** Orders participants exactly like the leaderboard index does. */
 export function rankOrder(a: Participant, b: Participant): number {
-  return b.stalls - a.stalls || t(a.reachedAt) - t(b.reachedAt) || a.playerNumber - b.playerNumber;
+  const key = (p: Participant) => leaderboardKey(p.stalls, p.reachedAt, p.userId);
+  return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0;
 }
 
 /** Ranks 1, 2, 3, ... in leaderboard order, disqualified players are left out */
