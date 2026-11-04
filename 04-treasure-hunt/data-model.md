@@ -2,43 +2,47 @@
 
 Table: `treasure-hunt` (DynamoDB, on-demand, point-in-time recovery). Single-table design.
 
-QuickLook counts the scans (decision D-18). We store the logos selected for each session, what we read from QuickLook's Leaderboard API, and the winners.
+QuickLook's backend sends every scan to us (decision D-20). We store every scan, the event logos, the counted standings and the winners.
 
 ## 1. Items
 
 | Item | PK | SK | Key attributes |
 |---|---|---|---|
-| Session | `SESSION#{sessionId}` | `META` | name, date, startsAt, endsAt, override, openedAt, closedAt, pointsPerStall, winnersCount, prizes, allowPreviousWinners, logos (the selected QuickLook logos: logoId, productName, companyName, logoCode, logoUrl), finalized |
-| Participant | `SESSION#{sessionId}` | `PART#{userId}` | playerNumber, fullName, mobile, rank (QuickLook's), stalls, points, totalScans, reachedAt, logos (logoId, firstScannedAt), disqualified |
-| Sync status | `SESSION#{sessionId}` | `SYNC` | lastSyncAt, participants (QuickLook's total), unknownLogoIds, error |
+| Session | `SESSION#{sessionId}` | `META` | name, date, startsAt, endsAt, override, openedAt, closedAt, pointsPerStall, winnersCount, prizes, allowPreviousWinners, finalized |
+| Participant | `SESSION#{sessionId}` | `PART#{userId}` | playerNumber, fullName (QuickLook user name), stalls, points, totalScans, reachedAt, logos (logoId, firstScannedAt), disqualified, winnerRank (the winner flag) |
+| Visit | `SESSION#{sessionId}` | `VISIT#{userId}#{logoId}` | at. Written once with a condition, so a logo counts once per visitor per session, even for scans sent in parallel |
+| Stats | `SESSION#{sessionId}` | `STATS` | scans (received in the session), lastScanAt |
 | Player number counter | `SESSION#{sessionId}` | `COUNTER` | next |
-| Winner | `SESSION#{sessionId}` | `WINNER#{rank}` | userId, playerNumber, fullName, mobile, stalls, points, prizeName, status (provisional, confirmed), confirmedBy, collectedAt, collectedBy |
+| Winner | `SESSION#{sessionId}` | `WINNER#{rank}` | userId, playerNumber, fullName, stalls, points, prizeName, status (provisional, confirmed), confirmedBy, collectedAt, collectedBy |
+| Scan | `SCANS#{sessionId}` (or `SCANS#NONE#{date}` outside a session) | `{receivedAt}#{random}` | userId, userName, logoId, eventId, scannedAt, receivedAt, result (counted, repeat, unknown-logo, no-session) |
+| Event ID | `EVENT#{eventId}` | `META` | ttl (4 days). A resent scan is stored once |
+| Event logo | `LOGOS` | `LOGO#{logoId}` | productName, companyName, logoCode, logoUrl. Loaded once from QuickLook, counts in every session |
 | Previous winner | `WINNERDAY#{date}` | `USER#{userId}` | sessionId (for the allowPreviousWinners rule) |
 
-`userId` is QuickLook's user ID. Names and mobile numbers come from QuickLook's leaderboard export and are shown to staff only.
+`userId` is QuickLook's user ID. Staff find the phone number with it in QuickLook. No phone numbers are stored for the hunt.
 
 ## 2. Indexes
 
 | Index | PK | SK | Used for |
 |---|---|---|---|
-| GSI1 (leaderboard) | `GSI1PK = LB#{sessionId}` | `GSI1SK = {QuickLook rank, zero padded}` (on participants) | Top N in rank order, and a visitor's rank |
+| GSI1 (leaderboard) | `GSI1PK = LB#{sessionId}` | `GSI1SK = {999999 minus logos, zero padded}#{reachedAt}` (on participants) | Top N in rank order: most logos, then earliest |
 | GSI2 | `GSI2PK = DATE#{date}` | `GSI2SK = {startsAt}` (on sessions) | Current and next session lookup |
 
-## 3. Reading QuickLook (sync)
+## 3. Receiving a scan
 
-While a session runs, the `hunt-jobs` Lambda (every minute) reads it four times, about 15 seconds apart:
-1. `GET /leaderboard/scans/export` with the session period (start or opened early, end or ended early), the selected `logo_ids` and `limit=1000`.
-2. For each row, put the participant if anything changed (a new visitor gets the next player number).
-3. Visitors QuickLook no longer lists (for example after a logo was deselected) get 0 stalls and rank 999999.
-4. Put the sync status (time, total participants, unknown logo IDs, or the error).
+1. Open the message (AES-256-GCM). Refuse it if it cannot be opened, or its `scanned_at` is older than 5 minutes.
+2. If it has an `event_id` already seen, answer "already received" and stop.
+3. Find the session whose scan period holds the scan time (`scanned_at`, else the time received). Finalized sessions take no more scans.
+4. If the logo is an event logo, put the Visit item with a condition. When it is new, add 1 logo and the points to the participant (created with the next player number on their first logo), then set the leaderboard key for that count.
+5. Add 1 to the session's scans, then store the Scan item with its result.
 
-After the end, the job reads the final standings once more, then marks the session finalized and lists the provisional winners. If QuickLook cannot be read, it tries again on the next run, so winners never come from old standings.
+Every minute the `hunt-jobs` Lambda freezes ended sessions, lists their provisional winners and sets `winnerRank` on those participants.
 
 ## 4. Access patterns
 
 | Pattern | Query |
 |---|---|
-| My score and rank | Get `PART#{userId}`, then count entries ahead on GSI1 |
 | Leaderboard top N | Query GSI1 `LB#{sessionId}`, limit N (cached 3 s) |
 | Participants for admins | Query `SESSION#{id}` with `begins_with PART#` |
+| A player's scans | Query `SCANS#{sessionId}`, filter on userId |
 | Winners | Query `SESSION#{id}` with `begins_with WINNER#` |

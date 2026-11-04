@@ -37,33 +37,51 @@ export const overlaps = (
   b: Pick<HuntSession, 'startsAt' | 'endsAt'>,
 ) => t(a.startsAt) < t(b.endsAt) && t(b.startsAt) < t(a.endsAt);
 
-/** Rank used for players QuickLook no longer lists (for example after a logo was deselected) */
-export const UNRANKED = 999_999;
+/** The most different logos a leaderboard key can hold */
+const MAX_STALLS = 999_999;
 
 /**
- * Leaderboard sort key: QuickLook's rank, which already puts the most stalls first and breaks
- * ties by who reached that count first. Stored as GSI1SK, so DynamoDB returns the top N in order.
+ * Leaderboard sort key: most different logos first, then whoever reached that count first.
+ * Stored as GSI1SK, so DynamoDB returns the top N in order.
  */
-export function leaderboardKey(rank: number): string {
-  return String(Math.min(Math.max(rank, 1), UNRANKED)).padStart(6, '0');
+export function leaderboardKey(stalls: number, reachedAt: string): string {
+  const behind = MAX_STALLS - Math.min(Math.max(stalls, 0), MAX_STALLS);
+  return `${String(behind).padStart(6, '0')}#${new Date(reachedAt).toISOString()}`;
 }
 
 /** Orders participants like the leaderboard index does. */
 export function rankOrder(a: Participant, b: Participant): number {
-  return a.rank - b.rank;
+  return b.stalls - a.stalls || t(a.reachedAt) - t(b.reachedAt) || a.playerNumber - b.playerNumber;
+}
+
+/** Ranks 1, 2, 3, ... in leaderboard order, disqualified players are left out */
+export function withRanks(participants: Participant[]): Participant[] {
+  return participants
+    .filter((p) => !p.disqualified && p.stalls > 0)
+    .sort(rankOrder)
+    .map((p, index) => ({ ...p, rank: index + 1 }));
 }
 
 /** Points shown to visitors: one point value per different stall logo scanned */
 export const pointsFor = (stalls: number, pointsPerStall: number) => stalls * pointsPerStall;
 
 /**
- * The scan period sent to QuickLook: from the start (or when staff opened it early) to the end
+ * The scan period of a session: from the start (or when staff opened it early) to the end
  * (or when staff ended it early).
  */
 export function scanPeriod(session: HuntSession): { start: string; end: string } {
   const start = session.override === 'open' && session.openedAt ? session.openedAt : session.startsAt;
   const end = session.override === 'closed' && session.closedAt ? session.closedAt : session.endsAt;
   return { start, end };
+}
+
+/** The session a scan counts in: its scan time is inside the scan period and winners are not out yet */
+export function sessionForScan(sessions: HuntSession[], at: Date): HuntSession | undefined {
+  return sessions.find((s) => {
+    if (s.finalized) return false;
+    const { start, end } = scanPeriod(s);
+    return at.getTime() >= t(start) && at.getTime() < t(end);
+  });
 }
 
 /**

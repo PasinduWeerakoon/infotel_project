@@ -1,7 +1,7 @@
 /**
  * Treasure Hunt admin API (Project B), prefix /admin/v1/hunt.
- * QuickLook counts the scans. Each session lists the QuickLook logos that count, and the standings
- * are read from QuickLook's Leaderboard API about every 15 seconds while the session runs.
+ * QuickLook's backend sends every stall scan to us. The event logos are loaded once and count in
+ * every session; each logo counts once per visitor per session.
  */
 import { http, qs } from './client';
 
@@ -18,14 +18,14 @@ export interface HuntSession {
   winnersCount: number;
   prizes: { rank: number; prizeName: string }[];
   allowPreviousWinners: boolean;
-  logos: EventLogo[];
   finalized: boolean;
   status: 'scheduled' | 'open' | 'closed';
   players?: number;
-  sync?: SyncStatus | null;
+  scans?: number;
+  lastScanAt?: string | null;
 }
 
-/** A QuickLook logo taking part in a session */
+/** An event logo, loaded once from QuickLook, counts in every session */
 export interface EventLogo {
   logoId: string;
   productName: string;
@@ -34,25 +34,30 @@ export interface EventLogo {
   logoUrl: string | null;
 }
 
-/** The last read from QuickLook for a session */
-export interface SyncStatus {
-  lastSyncAt: string | null;
-  participants: number;
-  unknownLogoIds: string[];
-  error: string | null;
-}
-
 export interface Participant {
+  /** QuickLook's user ID: staff find the phone number with it in QuickLook */
   userId: string;
   playerNumber: number;
   fullName: string;
-  mobile: string;
-  rank: number;
+  /** Null for a disqualified player */
+  rank: number | null;
   points: number;
   stalls: number;
   totalScans: number;
   reachedAt: string;
   disqualified: boolean;
+  /** Set when the winners are worked out */
+  winnerRank?: number | null;
+}
+
+export interface ScanRecord {
+  scanKey: string;
+  userId: string;
+  userName: string;
+  logoId: string;
+  scannedAt: string;
+  receivedAt: string;
+  result: 'counted' | 'repeat' | 'unknown-logo' | 'no-session';
 }
 
 export interface Winner {
@@ -61,7 +66,6 @@ export interface Winner {
   userId: string;
   playerNumber: number;
   fullName: string;
-  mobile: string;
   points: number;
   stalls: number;
   reachedAt: string;
@@ -81,15 +85,6 @@ export interface HuntSessionInput {
   winnersCount: number;
   prizes: { rank: number; prizeName: string }[];
   allowPreviousWinners: boolean;
-  /** Only when creating: the logos to start with */
-  logos?: EventLogo[];
-}
-
-export interface LogoPage {
-  page: number;
-  total: number;
-  totalPages: number;
-  items: EventLogo[];
 }
 
 const B = '/admin/v1/hunt';
@@ -102,20 +97,20 @@ export const huntApi = {
   deleteSession: (id: string) => http.delete<void>(s(id)),
   startSession: (id: string) => http.post<HuntSession>(`${s(id)}/start`),
   endSession: (id: string) => http.post<HuntSession>(`${s(id)}/end`),
-  setLogos: (id: string, logos: EventLogo[]) => http.put<HuntSession>(`${s(id)}/logos`, { logos }),
-  searchLogos: (input: {
-    name?: string;
-    company?: string;
-    logoCode?: string;
-    page: number;
-    pageSize: number;
-  }) => http.get<LogoPage>(`${B}/quicklook-logos${qs(input)}`),
-  sync: (id: string) => http.post<{ sync: SyncStatus }>(`${s(id)}/sync`),
+  logos: () => http.get<{ items: EventLogo[] }>(`${B}/logos`),
+  loadLogos: () => http.post<{ loaded: number; items: EventLogo[] }>(`${B}/logos/load`),
   live: (id: string) =>
-    http.get<{ session: HuntSession; players: number; sync: SyncStatus | null; top: Participant[] }>(
-      `${s(id)}/live`,
-    ),
+    http.get<{
+      session: HuntSession;
+      players: number;
+      scans: number;
+      lastScanAt: string | null;
+      eventLogos: number;
+      top: Participant[];
+    }>(`${s(id)}/live`),
   participants: (id: string) => http.get<{ items: Participant[] }>(`${s(id)}/participants`),
+  scans: (id: string, userId?: string) =>
+    http.get<{ items: ScanRecord[] }>(`${s(id)}/scans${qs({ userId })}`),
   winners: (id: string) => http.get<{ session: HuntSession; items: Winner[] }>(`${s(id)}/winners`),
   confirm: (id: string, rank: number) => http.post<Winner>(`${s(id)}/winners/${rank}/confirm`),
   disqualify: (id: string, rank: number) =>

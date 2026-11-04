@@ -64,8 +64,9 @@ function LogosTab() {
     <Row gutter={[16, 16]}>
       {items.map((logo) => (
         <Col xs={24} sm={12} xl={6} key={logo.logoId}>
-          <Card>
-            <Flex vertical gap={12}>
+          {/* Equal height cards; the footer sits on the same line in every card */}
+          <Card style={{ height: '100%' }} styles={{ body: { height: '100%' } }}>
+            <Flex vertical gap={12} style={{ height: '100%' }}>
               <ImageUpload
                 purpose="logo"
                 size={120}
@@ -78,11 +79,24 @@ function LogosTab() {
                   {LOGO_HINTS[logo.targetId ?? ''] ?? logo.logoType}
                 </Typography.Paragraph>
               </div>
-              {logo.logoType === 'game' ? (
+              <Flex
+                vertical
+                gap={4}
+                style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid rgba(0, 0, 0, 0.06)' }}
+              >
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  QuickLook logo ID: <Typography.Text code>{logo.logoId}</Typography.Text>
+                  {logo.logoType === 'game' ? 'QuickLook logo ID' : 'Shown on'}
                 </Typography.Text>
-              ) : null}
+                <Flex align="center" style={{ height: 24 }}>
+                  {logo.logoType === 'game' ? (
+                    <Typography.Text code copyable style={{ fontSize: 12 }}>
+                      {logo.logoId}
+                    </Typography.Text>
+                  ) : (
+                    <Typography.Text style={{ fontSize: 12 }}>Screens only</Typography.Text>
+                  )}
+                </Flex>
+              </Flex>
             </Flex>
           </Card>
         </Col>

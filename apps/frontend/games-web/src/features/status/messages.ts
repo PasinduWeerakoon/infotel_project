@@ -142,6 +142,45 @@ export function statusMessage(code: string, details: Details = {}): StatusMessag
         body: 'You did not start within the time, so the screen was given to the next visitor. This did not use your play.',
         facts: [],
       };
+    case 'QUICKLOOK_SIGN_IN_REQUIRED':
+      return {
+        icon: IconLock,
+        tone: 'info',
+        label: 'Sign in to play',
+        title: 'Sign in to the QuickLook app',
+        body: 'Open the QuickLook app, sign in, then scan the game logo again to play.',
+        facts: [],
+      };
+    case 'LINK_EXPIRED':
+      return {
+        icon: IconClockHour4,
+        tone: 'warning',
+        label: 'Link expired',
+        title: 'This game link has expired',
+        body: 'Game links work for a few minutes only. Scan the logo again with the QuickLook app.',
+        facts: [],
+      };
+    case 'LINK_NOT_READY':
+      return {
+        icon: IconPlayerPause,
+        tone: 'warning',
+        label: 'Not ready',
+        title: 'The games are getting ready',
+        body: 'Please try again in a few minutes, or visit the help desk.',
+        facts: [],
+        retry: true,
+      };
+    case 'RATE_LIMITED':
+      return {
+        icon: IconPlayerPause,
+        tone: 'warning',
+        label: 'Busy',
+        title: 'Too many tries',
+        body: 'Please wait a minute and try again. Your play is safe and is never counted twice.',
+        facts: [],
+        retry: true,
+      };
+    case 'LINK_INVALID':
     case 'SIGN_IN_REQUIRED':
     case 'TOKEN_INVALID':
     case 'LOGO_NOT_FOUND':

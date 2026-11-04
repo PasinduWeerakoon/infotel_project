@@ -1,7 +1,8 @@
 /**
  * Runtime configuration for the Treasure Hunt API.
- * Secrets (cookie signing keys shared with the platform) and the QuickLook Leaderboard API
- * address and key come from SSM in AWS and are cached. Locally they come from the environment.
+ * Secrets (cookie signing keys shared with the platform), the key that opens QuickLook's scan
+ * messages, and the QuickLook API address and key (event logo list) come from SSM in AWS and are
+ * cached. Locally they come from the environment.
  */
 import { getParametersByName } from '@aws-lambda-powertools/parameters/ssm';
 import { z } from 'zod';
@@ -16,11 +17,15 @@ const envSchema = z.object({
   SSM_PREFIX: z.string().optional(),
   SESSION_SECRET: z.string().optional(),
   ADMIN_SECRET: z.string().optional(),
-  /** Local only: the QuickLook mock answers the Leaderboard API */
+  /** Local only: the QuickLook mock answers the logo list */
   LEADERBOARD_BASE_URL: z.string().optional(),
   LEADERBOARD_API_KEY: z.string().optional(),
-  /** How often open sessions are read from QuickLook (QuickLook asks for 15 seconds or more) */
-  SYNC_SECONDS: z.coerce.number().int().min(5).default(15),
+  /** Local only: opens QuickLook's scan messages. In AWS: SSM {prefix}/hunt/scan-key */
+  HUNT_SCAN_KEY: z.string().optional(),
+  /** A scan message with a scan time older than this is refused */
+  SCAN_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
+  /** Local only: how often ended sessions are finalized (AWS runs the job every minute) */
+  JOB_SECONDS: z.coerce.number().int().min(1).default(60),
 });
 
 export const env = envSchema.parse(process.env);
@@ -84,4 +89,22 @@ export async function getLeaderboardConfig(): Promise<LeaderboardConfig | null> 
   const config = baseUrl && apiKey ? { baseUrl: baseUrl.replace(/\/+$/, ''), apiKey } : null;
   leaderboardCached = { config, at: Date.now() };
   return config;
+}
+
+let scanKeyCached: { key: string | null; at: number } | undefined;
+
+/** The key that opens QuickLook's scan messages, or null while it is not set (scans are refused). */
+export async function getHuntScanKey(): Promise<string | null> {
+  if (scanKeyCached && Date.now() - scanKeyCached.at < 300_000) return scanKeyCached.key;
+  let key = env.HUNT_SCAN_KEY;
+  if (env.SECRETS_SOURCE === 'ssm') {
+    const name = `${env.SSM_PREFIX}/hunt/scan-key`;
+    const values = await getParametersByName<string>(
+      { [name]: {} },
+      { decrypt: true, maxAge: 300, throwOnError: false },
+    );
+    key = values[name] ? String(values[name]) : undefined;
+  }
+  scanKeyCached = { key: key?.trim() || null, at: Date.now() };
+  return scanKeyCached.key;
 }

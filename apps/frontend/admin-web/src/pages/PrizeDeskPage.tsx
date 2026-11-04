@@ -1,7 +1,8 @@
 /**
  * A6: prize desk for both events. Find a Games prize by its reference ID or the name the player
- * typed on the phone (with their phone number). Find a Treasure Hunt winner by player number or
- * name (name and mobile come from QuickLook's leaderboard). A prize can be collected once.
+ * typed on the phone (with their phone number). Find a Treasure Hunt winner by player number,
+ * name or QuickLook user ID (the phone number is found with the ID in QuickLook). A prize can be
+ * collected once.
  */
 import { IconGift, IconSearch, IconUserCheck } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -260,13 +261,17 @@ function HuntDesk() {
   });
   const needle = filter.replace('#', '').trim().toLowerCase();
   const rows = (winners.data?.items ?? []).filter(
-    (w) => !needle || String(w.playerNumber) === needle || w.fullName.toLowerCase().includes(needle),
+    (w) =>
+      !needle ||
+      String(w.playerNumber) === needle ||
+      w.fullName.toLowerCase().includes(needle) ||
+      w.userId.toLowerCase().includes(needle),
   );
 
   return (
     <Flex vertical gap={16}>
       <Input.Search
-        placeholder="Player number or name, for example 27 or Nimal"
+        placeholder="Player number, name or QuickLook user ID"
         allowClear
         onChange={(e) => setFilter(e.target.value)}
         style={{ maxWidth: 320 }}
@@ -286,8 +291,9 @@ function HuntDesk() {
               render: (_, w) => (
                 <Flex vertical>
                   <Typography.Text strong>{w.fullName}</Typography.Text>
-                  <Typography.Text type="secondary">
-                    #{w.playerNumber}, {w.mobile}
+                  <Typography.Text type="secondary">#{w.playerNumber}</Typography.Text>
+                  <Typography.Text code copyable style={{ fontSize: 12 }}>
+                    {w.userId}
                   </Typography.Text>
                 </Flex>
               ),

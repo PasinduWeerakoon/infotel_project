@@ -1,10 +1,11 @@
 /**
- * Treasure Hunt sessions: time, the QuickLook logos that count, points per stall, number of
- * winners and prizes per rank. While a session runs, its standings are read from QuickLook.
+ * Treasure Hunt sessions: time, points per stall, number of winners and prizes per rank.
+ * QuickLook sends every stall scan; the event logos count in every session.
  */
-import { IconAlertTriangle, IconPlus, IconRefresh, IconTrash } from '@tabler/icons-react';
+import { IconAlertTriangle, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  Alert,
   Button,
   DatePicker,
   Drawer,
@@ -13,16 +14,15 @@ import {
   Input,
   InputNumber,
   Popconfirm,
-  Select,
   Switch,
   Table,
   Tag,
   TimePicker,
-  Tooltip,
   Typography,
 } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { type HuntSession, type HuntSessionInput, huntApi } from '../../api/hunt';
 import { useAuth } from '../../app/auth';
 import { hasRole } from '../../app/navigation';
@@ -30,23 +30,19 @@ import { PageHeader } from '../../components/PageHeader';
 import { StatusTag } from '../../components/StatusTag';
 import { useAction } from '../../hooks/useAction';
 import { colombo, formatDate, formatTime, timeRange } from '../../lib/format';
-import { LogoPicker } from './LogoPicker';
 
-interface FormValues extends Omit<HuntSessionInput, 'date' | 'start' | 'end' | 'logos'> {
+interface FormValues extends Omit<HuntSessionInput, 'date' | 'start' | 'end'> {
   date: dayjs.Dayjs;
   time: [dayjs.Dayjs, dayjs.Dayjs];
-  /** New session only: copy the logos of this session */
-  logosFrom?: string;
 }
 
 export function HuntSessionsPage() {
   const { role } = useAuth();
   const canEdit = hasRole(role, ['hunt-admin']);
   const sessions = useQuery({ queryKey: ['hunt', 'sessions'], queryFn: () => huntApi.sessions() });
+  const logos = useQuery({ queryKey: ['hunt', 'logos'], queryFn: huntApi.logos });
   const [editing, setEditing] = useState<HuntSession | 'new' | null>(null);
-  const [picking, setPicking] = useState<HuntSession | null>(null);
   const refresh = [['hunt']];
-  const sync = useAction(huntApi.sync, { success: 'Read from QuickLook', refresh });
   const items = sessions.data?.items ?? [];
   const start = useAction(huntApi.startSession, { success: 'Session started', refresh });
   const end = useAction(huntApi.endSession, { success: 'Session ended. Standings are frozen.', refresh });
@@ -56,7 +52,7 @@ export function HuntSessionsPage() {
     <>
       <PageHeader
         title="Treasure Hunt sessions"
-        description="A separate event. QuickLook counts the scans of the selected logos, each logo once per visitor. Standings are read from QuickLook about every 15 seconds."
+        description="A separate event. QuickLook sends every stall scan. Each event logo counts once per visitor per session, the most logos wins."
         extra={
           canEdit ? (
             <Button type="primary" icon={<IconPlus size={16} />} onClick={() => setEditing('new')}>
@@ -65,6 +61,21 @@ export function HuntSessionsPage() {
           ) : null
         }
       />
+      {logos.data && logos.data.items.length === 0 ? (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<IconAlertTriangle size={16} />}
+          style={{ marginBottom: 16 }}
+          message="No event logos yet"
+          description={
+            <>
+              Scans are kept but do not count until the logos are loaded. Open{' '}
+              <Link to="/hunt/logos">Event logos</Link> and load them from QuickLook.
+            </>
+          }
+        />
+      ) : null}
       <Table
         rowKey="sessionId"
         loading={sessions.isLoading}
@@ -75,45 +86,30 @@ export function HuntSessionsPage() {
           { title: 'Day', dataIndex: 'date', render: formatDate },
           { title: 'Session', dataIndex: 'name' },
           { title: 'Time', render: (_, s) => timeRange(s) },
-          {
-            title: 'Logos',
-            render: (_, s) => (
-              <Flex gap={6} align="center">
-                {s.logos.length > 0 ? (
-                  <Tag bordered={false} color="purple">
-                    {s.logos.length}
-                  </Tag>
-                ) : (
-                  <Tag bordered={false} color="orange" icon={<IconAlertTriangle size={12} />}>
-                    None
-                  </Tag>
-                )}
-                {canEdit && !s.finalized ? (
-                  <Button size="small" type="link" onClick={() => setPicking(s)} style={{ padding: 0 }}>
-                    Choose
-                  </Button>
-                ) : null}
-              </Flex>
-            ),
-          },
           { title: 'Points per stall', dataIndex: 'pointsPerStall', align: 'right' },
           { title: 'Winners', dataIndex: 'winnersCount', align: 'right' },
           { title: 'Players', dataIndex: 'players', align: 'right' },
+          { title: 'Scans', dataIndex: 'scans', align: 'right' },
           {
-            title: 'Last read from QuickLook',
+            title: 'Last scan',
             render: (_, s) =>
-              s.status === 'scheduled' ? (
-                <Typography.Text type="secondary">Not started</Typography.Text>
-              ) : s.sync?.error ? (
-                <Tooltip title={s.sync.error}>
-                  <Tag bordered={false} color="orange">
-                    Problem
-                  </Tag>
-                </Tooltip>
-              ) : s.sync?.lastSyncAt ? (
-                formatTime(s.sync.lastSyncAt)
+              s.lastScanAt ? (
+                formatTime(s.lastScanAt)
               ) : (
-                <Typography.Text type="secondary">Waiting</Typography.Text>
+                <Typography.Text type="secondary">
+                  {s.status === 'scheduled' ? 'Not started' : 'None yet'}
+                </Typography.Text>
+              ),
+          },
+          {
+            title: 'Winners',
+            render: (_, s) =>
+              s.finalized ? (
+                <Tag bordered={false} color="green">
+                  Listed
+                </Tag>
+              ) : (
+                <Typography.Text type="secondary">After the end</Typography.Text>
               ),
           },
           {
@@ -131,16 +127,6 @@ export function HuntSessionsPage() {
                     <Button size="small" onClick={() => start.mutate(s.sessionId)}>
                       Start now
                     </Button>
-                  ) : null}
-                  {s.status === 'open' ? (
-                    <Tooltip title="Read the standings from QuickLook now">
-                      <Button
-                        size="small"
-                        icon={<IconRefresh size={14} />}
-                        loading={sync.isPending && sync.variables === s.sessionId}
-                        onClick={() => sync.mutate(s.sessionId)}
-                      />
-                    </Tooltip>
                   ) : null}
                   {s.status === 'open' ? (
                     <Popconfirm
@@ -168,17 +154,15 @@ export function HuntSessionsPage() {
           },
         ]}
       />
-      <HuntSessionDrawer session={editing} sessions={items} onClose={() => setEditing(null)} />
-      {picking ? <LogoPicker session={picking} sessions={items} onClose={() => setPicking(null)} /> : null}
+      <HuntSessionDrawer session={editing} onClose={() => setEditing(null)} />
     </>
   );
 }
 
 function HuntSessionDrawer({
   session,
-  sessions,
   onClose,
-}: { session: HuntSession | 'new' | null; sessions: HuntSession[]; onClose: () => void }) {
+}: { session: HuntSession | 'new' | null; onClose: () => void }) {
   const [form] = Form.useForm<FormValues>();
   const existing = session && session !== 'new' ? session : null;
   const save = useAction(
@@ -199,7 +183,7 @@ function HuntSessionDrawer({
     : {
         pointsPerStall: 10,
         winnersCount: 3,
-        allowPreviousWinners: false,
+        allowPreviousWinners: true,
         prizes: [
           { rank: 1, prizeName: '' },
           { rank: 2, prizeName: '' },
@@ -207,14 +191,9 @@ function HuntSessionDrawer({
         ],
       };
 
-  const withLogos = sessions.filter((s) => s.logos.length > 0);
-  const latestWithLogos = [...withLogos].sort((a, b) => b.startsAt.localeCompare(a.startsAt))[0];
-  if (!existing) initial.logosFrom = latestWithLogos?.sessionId;
-
-  const submit = ({ date, time, prizes, logosFrom, ...rest }: FormValues) =>
+  const submit = ({ date, time, prizes, ...rest }: FormValues) =>
     save.mutate({
       ...rest,
-      ...(existing ? {} : { logos: withLogos.find((s) => s.sessionId === logosFrom)?.logos ?? [] }),
       date: date.format('YYYY-MM-DD'),
       start: time[0].format('HH:mm'),
       end: time[1].format('HH:mm'),
@@ -278,22 +257,6 @@ function HuntSessionDrawer({
             </Flex>
           )}
         </Form.List>
-        {!existing ? (
-          <Form.Item
-            label="Start with the logos of"
-            name="logosFrom"
-            extra="You can change the logos later with Choose in the Logos column."
-          >
-            <Select
-              allowClear
-              placeholder="No logos yet"
-              options={withLogos.map((s) => ({
-                value: s.sessionId,
-                label: `${formatDate(s.date)}, ${s.name} (${s.logos.length} logos)`,
-              }))}
-            />
-          </Form.Item>
-        ) : null}
         <Form.Item
           label="Previous winners can win again"
           name="allowPreviousWinners"

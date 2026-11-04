@@ -2,11 +2,14 @@
  * Both games ask for the player's name and phone before playing. The prize desk uses them to
  * find the prize, and the big screens show the name with the prize. Nothing is validated,
  * only trimmed. The last details are remembered on this phone to save typing next time.
+ * A visitor who came from the QuickLook app has their QuickLook name filled in and locked
+ * (the server uses that name whatever is sent), so only the phone number is typed.
  */
-import { IconArrowRight } from '@tabler/icons-react';
+import { IconArrowRight, IconLock } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { PlayerDetails } from '../../api/games';
+import { type PlayerDetails, gamesApi } from '../../api/games';
 import { Button } from '../../components/ui/Button';
 
 const STORAGE_KEY = 'lkdr_player';
@@ -29,15 +32,18 @@ function remember(player: PlayerDetails) {
 }
 
 export function PlayerDetailsSheet({ onDone }: { onDone: (player: PlayerDetails) => void }) {
-  const [name, setName] = useState(() => rememberedPlayer().name);
+  const session = useQuery({ queryKey: ['session'], queryFn: gamesApi.session, staleTime: 60_000 });
+  const lockedName = session.data?.nameLocked ? session.data.firstName : null;
+  const [typedName, setName] = useState(() => rememberedPlayer().name);
   const [phone, setPhone] = useState(() => rememberedPlayer().phone);
-  const ready = name.trim().length > 0 && phone.trim().length > 0;
+  const name = lockedName ?? typedName;
+  const ready = !session.isPending && name.trim().length > 0 && phone.trim().length > 0;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!ready) return;
     const player = { name: name.trim().slice(0, 60), phone: phone.trim().slice(0, 30) };
-    remember(player);
+    remember(lockedName ? { name: typedName, phone: player.phone } : player);
     onDone(player);
   };
 
@@ -64,14 +70,24 @@ export function PlayerDetailsSheet({ onDone }: { onDone: (player: PlayerDetails)
         <Field label="Your name">
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            readOnly={Boolean(lockedName)}
+            aria-readonly={Boolean(lockedName)}
+            onChange={(e) => {
+              if (!lockedName) setName(e.target.value);
+            }}
             maxLength={60}
             autoComplete="name"
             autoCapitalize="words"
             enterKeyHint="next"
             placeholder="For example Nimal Perera"
-            className="field"
+            className={lockedName ? 'field cursor-default opacity-80' : 'field'}
           />
+          {lockedName ? (
+            <span className="flex items-center gap-1.5 text-[13px] text-haze">
+              <IconLock className="size-4" stroke={2} aria-hidden />
+              From your QuickLook account
+            </span>
+          ) : null}
         </Field>
         <Field label="Phone number">
           <input

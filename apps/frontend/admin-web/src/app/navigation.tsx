@@ -9,6 +9,7 @@ import {
   IconGift,
   IconLayoutDashboard,
   IconListNumbers,
+  IconPhoto,
   IconTicket,
   IconTrophy,
   IconUsers,
@@ -73,7 +74,12 @@ export const NAVIGATION: NavGroup[] = [
         icon: icon(IconCalendarEvent),
         roles: ['hunt-admin', 'viewer'],
       },
-      // Stalls is hidden for now, the page stays in pages/hunt/StallsPage.tsx
+      {
+        path: '/hunt/logos',
+        label: 'Event logos',
+        icon: icon(IconPhoto),
+        roles: ['hunt-admin', 'viewer'],
+      },
       {
         path: '/hunt/winners',
         label: 'Leaderboard and winners',

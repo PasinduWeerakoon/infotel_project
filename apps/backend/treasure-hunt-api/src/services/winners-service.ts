@@ -1,6 +1,6 @@
 /**
- * Winners: worked out when a session ends from QuickLook's final standings (provisional), then
- * confirmed or disqualified by staff.
+ * Winners: worked out when a session ends from the counted scans (provisional, and flagged on the
+ * participants), then confirmed or disqualified by staff.
  * Disqualifying a player recalculates the list, so everyone below moves up one rank.
  * Confirmed winners keep their place.
  */
@@ -17,7 +17,6 @@ import { huntStatus, pickWinners, prizeForRank } from '../domain/rules.js';
 import type { HuntSession, Winner } from '../domain/types.js';
 import { HttpError } from '../lib/http.js';
 import { logger } from '../lib/logger.js';
-import { syncSession } from './sync-service.js';
 
 /** Recalculates the winners of an ended session from the frozen standings. */
 export async function recalculateWinners(session: HuntSession): Promise<Winner[]> {
@@ -42,7 +41,6 @@ export async function recalculateWinners(session: HuntSession): Promise<Winner[]
       userId: p.userId,
       playerNumber: p.playerNumber,
       fullName: p.fullName,
-      mobile: p.mobile,
       points: p.points,
       stalls: p.stalls,
       reachedAt: p.reachedAt,
@@ -58,14 +56,12 @@ export async function recalculateWinners(session: HuntSession): Promise<Winner[]
 }
 
 /**
- * Job: reads the final standings of ended sessions from QuickLook, then freezes them and lists
- * their provisional winners (once per session). If QuickLook cannot be read, it tries again on
- * the next run, so winners are never picked from old standings.
+ * Job: freezes the standings of ended sessions and lists their provisional winners, once per
+ * session. Scans that arrive after this no longer count (sessionForScan skips finalized sessions).
  */
 export async function finalizeEndedSessions(): Promise<void> {
   for (const session of await nearbySessions()) {
     if (session.finalized || huntStatus(session) !== 'closed') continue;
-    if (!(await syncSession(session))) continue;
     if (!(await markFinalized(session.sessionId))) continue;
     const winners = await recalculateWinners(session);
     logger.info('Session finalized', { sessionId: session.sessionId, winners: winners.length });

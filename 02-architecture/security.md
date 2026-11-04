@@ -35,7 +35,7 @@
 | Admin account misuse | Built-in login, hashed passwords (scrypt, built into Node.js), lockout after 5 failed attempts, roles per tab, audit log |
 | Cross-site requests on admin APIs | Admin cookie SameSite=Strict plus a required custom header (`X-LKDR-Admin: 1`) |
 | Fake stall screens | Screen key issued in the admin dashboard, stored as a hash, can be revoked |
-| Floods and bots | CloudFront with Shield Standard, API Gateway throttling, per-session and per-user limits. Per-IP limits are generous because venue Wi-Fi shares one IP |
+| Floods and bots | CloudFront with Shield Standard, API Gateway throttling, per-session and per-user limits. Per-IP limits are generous because venue Wi-Fi shares one IP. Built as DynamoDB counters per minute (TTL): 60 requests a minute per visitor on the game routes, 600 a minute per IP on scan sign in and the game routes, then HTTP 429 `RATE_LIMITED`. Set with `RATE_LIMIT_VISITOR_PER_MINUTE` and `RATE_LIMIT_IP_PER_MINUTE` (0 turns a limit off). A counter that fails lets the request through. The QuickLook hunt scan API is not limited per IP, because every scan comes from QuickLook's servers |
 | Secrets in code | All secrets in SSM Parameter Store (encrypted), least-privilege IAM per Lambda |
 
 ## 4. Admin roles

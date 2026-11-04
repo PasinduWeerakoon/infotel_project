@@ -32,6 +32,7 @@ export function startLocalServer(router: RouteHandler, port: number, before?: Be
       body: parseJson(rawBody),
       rawBody,
       requestId: randomUUID(),
+      ip: req.socket.remoteAddress ?? '',
     };
 
     const response = await router(apiRequest);

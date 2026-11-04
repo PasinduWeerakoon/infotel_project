@@ -108,6 +108,20 @@ if (won) {
   const looked = await desk.call('GET', `${G}/references/${won}`);
   check('D5', 'lookup shows who collected and when', Boolean(looked.data?.collectedAt && looked.data?.collectedBy), JSON.stringify(looked.data).slice(0, 200));
 }
+// E: plays report and CSV export (name, masked phone, collection status)
+if (won) {
+  const report = await viewer.call('GET', `${G}/reports/plays?sessionId=${running.sessionId}`);
+  const row = report.data?.items?.find((r) => r.reference === won);
+  check('E1', 'plays report shows the name, the masked phone and who collected', Boolean(row && row.name.startsWith('QA Desk Player') && row.phone === '077****567' && row.collectedAt && row.collectedBy), JSON.stringify(row ?? report.data).slice(0, 300));
+  const csv = await viewer.call('GET', `${G}/reports/plays?sessionId=${running.sessionId}&format=csv`);
+  const text = typeof csv.data === 'string' ? csv.data : '';
+  const line = text.split('\r\n').find((l) => l.includes(won)) ?? '';
+  check('E2', 'CSV export has the columns and the collected prize row', csv.status === 200 && text.includes('"Played at (Colombo)","Game","Name","Phone","QuickLook user ID","Prize","Reference","Collected"') && line.includes('"077****567"') && line.includes('"Yes"'), `${csv.status} ${text.slice(0, 200)}`);
+  check('E3', 'CSV export never has a full phone number', !text.includes('0771234567'), 'full number found');
+  const noHeader = await fetch(`${G}/reports/plays?sessionId=${running.sessionId}&format=csv`, { headers: { cookie: [...viewer.jar].map(([k, v]) => `${k}=${v}`).join('; ') } });
+  check('E4', 'CSV export without the admin header is refused (cross-site guard)', noHeader.status === 403, `got ${noHeader.status}`);
+  expectStatus('E5', 'prize desk cannot export the plays', await desk.call('GET', `${G}/reports/plays?sessionId=${running.sessionId}&format=csv`), 403);
+}
 expectStatus('D6', 'malformed reference finds nothing', await desk.call('GET', `${G}/references/HELLO`), 404);
 expectStatus('D7', 'unknown reference', await desk.call('GET', `${G}/references/LKD-AAAA-22`), 404);
 

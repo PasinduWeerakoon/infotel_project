@@ -21,6 +21,8 @@ export interface ApiRequest {
   /** The exact body as received (needed for webhook signatures) */
   rawBody: string;
   requestId: string;
+  /** The caller's IP address (API Gateway source IP), for rate limits */
+  ip: string;
 }
 
 export interface ApiResponse {

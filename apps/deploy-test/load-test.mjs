@@ -3,6 +3,8 @@
 // most attempts get "game in progress"), the Treasure Hunt leaderboard, screens and staff.
 // It creates a "Load test" session now and allocates some prizes; clean up afterwards with
 // clear-activity.ts. Never point it at production.
+// All the traffic comes from this one machine, so deploy with RATE_LIMIT_IP=0 first (the venue
+// limit of 600 a minute per IP would refuse most of it), and deploy again without it afterwards.
 //
 //   STATE_DIR=.state-1bt TARGET_RPS=300 node load-test.mjs
 //

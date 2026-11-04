@@ -55,8 +55,7 @@ async function createTable() {
 
 /**
  * The eight Treasure Hunt logos of the QuickLook mock (backend/quicklook-mock/src/leaderboard.ts),
- * selected on every local session. In AWS sessions start with no logos: the admin selects the
- * real QuickLook logos in the dashboard.
+ * the local event logos. In AWS staff load the real ones from QuickLook once ("Load logos").
  */
 const MOCK_EVENT_LOGOS = [
   ['1', 'Lanka Fibre Broadband', 'Lanka Fibre', 'QL-0101'],
@@ -111,8 +110,7 @@ async function seed() {
               { rank: 2, prizeName: 'Power bank' },
               { rank: 3, prizeName: 'Umbrella' },
             ],
-            allowPreviousWinners: false,
-            logos: LOCAL_ENDPOINT ? MOCK_EVENT_LOGOS : [],
+            allowPreviousWinners: true,
             finalized: false,
             createdAt: now,
           },
@@ -120,8 +118,16 @@ async function seed() {
       );
     }
   }
+  // Locally the event logos are loaded straight away (in AWS staff load them from QuickLook)
+  if (LOCAL_ENDPOINT) {
+    for (const logo of MOCK_EVENT_LOGOS) {
+      await db.send(
+        new PutCommand({ TableName: TABLE, Item: { PK: 'LOGOS', SK: `LOGO#${logo.logoId}`, ...logo } }),
+      );
+    }
+  }
   console.log(
-    `Seeded ${days.length * 2} hunt sessions${LOCAL_ENDPOINT ? ' with the mock QuickLook logos' : ''}`,
+    `Seeded ${days.length * 2} hunt sessions${LOCAL_ENDPOINT ? ' and the mock QuickLook event logos' : ''}`,
   );
 }
 

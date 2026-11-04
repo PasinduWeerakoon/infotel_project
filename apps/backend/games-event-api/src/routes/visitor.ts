@@ -4,12 +4,14 @@
  *   GET  /games/v1/status
  *   POST /games/v1/entries                 { scanId }
  *   GET  /games/v1/entries/:entryId
- *   POST /games/v1/entries/:entryId/play   { player: { name, phone } } (needed for both games)
+ *   POST /games/v1/entries/:entryId/play   { player: { name, phone } } (needed for both games,
+ *                                          the name is the QuickLook one when the session has it locked)
  */
 import { z } from 'zod';
 import { getSecrets } from '../config.js';
 import { requireVisitor } from '../lib/auth.js';
 import { type ApiRequest, type Route, json, parseBody } from '../lib/http.js';
+import { LIMITS, rateLimit } from '../lib/rate-limit.js';
 import { getStatus, playEntry, readEntry, startEntry } from '../services/play-service.js';
 
 /** Name and phone are only trimmed and limited in length, never validated */
@@ -19,7 +21,15 @@ const playInput = z.object({
     .optional(),
 });
 
-const visitor = async (req: ApiRequest) => requireVisitor(req, (await getSecrets()).sessionSecret);
+/** The signed-in visitor, counted against the per-visitor and per-IP limits */
+const visitor = async (req: ApiRequest) => {
+  const signedIn = await requireVisitor(req, (await getSecrets()).sessionSecret);
+  await Promise.all([
+    rateLimit('visitor', signedIn.userId, LIMITS.perVisitor),
+    rateLimit('games-ip', req.ip, LIMITS.perIp),
+  ]);
+  return signedIn;
+};
 
 export const visitorRoutes: Route[] = [
   {
@@ -47,9 +57,11 @@ export const visitorRoutes: Route[] = [
     method: 'POST',
     path: '/games/v1/entries/:entryId/play',
     handler: async (req) => {
-      const { userId } = await visitor(req);
+      const { userId, firstName, nameLocked } = await visitor(req);
       const { player } = parseBody(playInput, req);
-      return json(await playEntry(userId, req.params.entryId ?? '', player ?? null));
+      // A name from a QuickLook link cannot be changed: the server uses it, whatever the phone sends
+      const details = player && nameLocked && firstName ? { ...player, name: firstName } : player;
+      return json(await playEntry(userId, req.params.entryId ?? '', details ?? null));
     },
   },
 ];

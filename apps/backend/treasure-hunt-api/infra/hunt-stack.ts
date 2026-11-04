@@ -1,11 +1,10 @@
 /**
  * AWS resources of Project B (Treasure Hunt):
  * - `treasure-hunt` table
- * - Lambdas: hunt-visitor, hunt-admin, hunt-jobs (every minute: reads QuickLook's Leaderboard API
- *   every 15 seconds while a session runs, then works out the winners)
+ * - Lambdas: hunt-visitor, hunt-admin, hunt-scans (QuickLook's backend sends every stall scan,
+ *   encrypted), hunt-jobs (every minute: freezes ended sessions and works out the winners)
  * - Routes on the shared HTTP API created by the platform stack
- * QuickLook counts the stall scans, so there is no scan queue or scoring worker.
- * The Leaderboard API address and key are read at runtime from SSM ({prefix}/hunt/*).
+ * The scan key and the QuickLook API address and key are read at runtime from SSM ({prefix}/hunt/*).
  */
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +33,8 @@ export class HuntStack extends Stack {
     super(scope, id, props);
     const { stage } = props;
     const ssmPrefix = `/lkdr/${stage}`;
+    // Event data must survive a stack delete (prod, or the event running on the dev stacks)
+    const keepData = stage === 'prod' || this.node.tryGetContext('keepData') === 'true';
     const shared = (name: string) =>
       ssm.StringParameter.valueForStringParameter(this, `${ssmPrefix}/platform/${name}`);
 
@@ -49,7 +50,8 @@ export class HuntStack extends Stack {
         partitionKey: { name: `${name}PK`, type: dynamodb.AttributeType.STRING },
         sortKey: { name: `${name}SK`, type: dynamodb.AttributeType.STRING },
       })),
-      removalPolicy: stage === 'prod' ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      removalPolicy: keepData ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      deletionProtection: keepData,
     });
     const platformTable = dynamodb.Table.fromTableArn(this, 'PlatformTable', shared('table-arn'));
 
@@ -95,8 +97,9 @@ export class HuntStack extends Stack {
 
     const visitor = makeFunction('hunt-visitor', 'visitor.ts', true);
     const admin = makeFunction('hunt-admin', 'admin.ts');
-    // Runs up to four reads 15 seconds apart, finishing before the next minute starts
-    const jobs = makeFunction('hunt-jobs', 'jobs.ts', false, 58);
+    // QuickLook calls this for every stall scan, so it is kept warm like the visitor API
+    const scans = makeFunction('hunt-scans', 'integration.ts', true);
+    const jobs = makeFunction('hunt-jobs', 'jobs.ts', false, 30);
 
     new events.Rule(this, 'JobsEveryMinute', {
       schedule: events.Schedule.rate(Duration.minutes(1)),
@@ -114,5 +117,10 @@ export class HuntStack extends Stack {
       });
     addRoute('VisitorRoutes', '/hunt/v1/{proxy+}', visitor);
     addRoute('AdminRoutes', '/admin/v1/hunt/{proxy+}', admin);
+    new apigw.HttpRoute(this, 'ScanRoutes', {
+      httpApi,
+      routeKey: apigw.HttpRouteKey.with('/integrations/quicklook/v1/hunt-scans', apigw.HttpMethod.POST),
+      integration: new HttpLambdaIntegration('ScanRoutesIntegration', scans),
+    });
   }
 }

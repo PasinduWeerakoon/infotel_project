@@ -41,6 +41,7 @@ import { type AdminRole, requireAdmin } from '../lib/auth.js';
 import { type ApiRequest, HttpError, type Route, json, noContent, parseBody } from '../lib/http.js';
 import { audit } from '../lib/logger.js';
 import { ms, nowIso } from '../lib/time.js';
+import { playRows, toCsv } from '../services/plays-report.js';
 import { notifyScreens } from '../services/screen-notifier.js';
 
 const BASE = '/admin/v1/games';
@@ -251,29 +252,18 @@ async function collect(req: ApiRequest) {
   return json(await referenceView(view.reference));
 }
 
-/** Plays of one session as JSON or CSV. Opaque QuickLook IDs only, no personal data. */
+/** Plays of one session as JSON (admin table) or CSV (export), with the masked phone */
 async function playsReport(req: ApiRequest) {
   await admin(req, ['games-admin', 'viewer']);
-  const sessionId = z.string().min(1).parse(req.query.sessionId);
-  const [plays, prizes] = await Promise.all([listPlays(sessionId, 10_000), listPrizes()]);
-  const names = new Map(prizes.map((p) => [p.prizeId, p.name]));
-  const rows = plays.map((e) => ({
-    playedAt: e.playedAt,
-    game: e.game,
-    userId: e.userId,
-    prize: e.prizeId ? (names.get(e.prizeId) ?? e.prizeId) : '',
-    reference: e.reference ?? '',
-  }));
+  const sessionId = z.string().min(1).max(60).parse(req.query.sessionId);
+  const rows = await playRows(sessionId);
   if (req.query.format !== 'csv') return json({ items: rows });
-  const header = 'playedAt,game,userId,prize,reference';
-  const csvCell = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`;
-  const csv = [header, ...rows.map((r) => Object.values(r).map(csvCell).join(','))].join('\n');
   return {
     status: 200,
-    text: csv,
+    text: toCsv(rows),
     headers: {
-      'content-type': 'text/csv',
-      'content-disposition': `attachment; filename="plays-${sessionId}.csv"`,
+      'content-type': 'text/csv; charset=utf-8',
+      'content-disposition': `attachment; filename="plays-${sessionId.replace(/[^\w-]/g, '')}.csv"`,
     },
   };
 }

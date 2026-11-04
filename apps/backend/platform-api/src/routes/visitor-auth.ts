@@ -137,6 +137,7 @@ async function session(req: ApiRequest) {
   const visitor = await requireVisitor(req, config.secrets.sessionSecret);
   return json({
     firstName: visitor.firstName,
+    nameLocked: visitor.nameLocked,
     expiresAt: new Date(visitor.expiresAt * 1000).toISOString(),
   });
 }

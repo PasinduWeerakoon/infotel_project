@@ -4,11 +4,11 @@
  *   GET    /sessions?date=                     POST /sessions
  *   PUT    /sessions/:sessionId                DELETE /sessions/:sessionId (before it starts)
  *   POST   /sessions/:sessionId/start | end
- *   PUT    /sessions/:sessionId/logos          the QuickLook logos that count in the session
- *   GET    /quicklook-logos?name=&company=&logoCode=&page=   search QuickLook's registered logos
- *   POST   /sessions/:sessionId/sync           read the standings from QuickLook now
- *   GET    /sessions/:sessionId/live           top 10, players, last read from QuickLook
- *   GET    /sessions/:sessionId/participants
+ *   GET    /logos                              the event logos (count in every session)
+ *   POST   /logos/load                         load the event logos from QuickLook (once)
+ *   GET    /sessions/:sessionId/live           top 10, players, scans received, last scan
+ *   GET    /sessions/:sessionId/participants   ranked, with QuickLook user IDs
+ *   GET    /sessions/:sessionId/scans?userId=  every scan received (newest first)
  *   GET    /sessions/:sessionId/winners
  *   POST   /sessions/:sessionId/winners/:rank/confirm | disqualify | collect
  *   GET    /winners?date=                      prize desk: confirmed winners of a day
@@ -23,28 +23,29 @@ import {
   listSessionsByDate,
   saveSession,
 } from '../data/hunt-repo.js';
+import { listEventLogos } from '../data/logos-repo.js';
 import {
   collectWinner,
-  getSyncStatus,
+  getStats,
   listParticipants,
   listWinners,
+  playerCount,
   topParticipants,
 } from '../data/players-repo.js';
-import { searchLogos } from '../data/quicklook-leaderboard.js';
+import { listScans } from '../data/scans-repo.js';
 import {
   type StartEarlyProblem,
-  UNRANKED,
   huntStatus,
   overlaps,
-  rankOrder,
   startEarlyProblem,
+  withRanks,
 } from '../domain/rules.js';
 import type { HuntSession } from '../domain/types.js';
 import { type AdminRole, requireAdmin } from '../lib/auth.js';
 import { type ApiRequest, HttpError, type Route, json, noContent, parseBody } from '../lib/http.js';
 import { audit } from '../lib/logger.js';
 import { atColomboTime, colomboDate, nowIso } from '../lib/time.js';
-import { syncSession } from '../services/sync-service.js';
+import { loadLogosFromQuickLook } from '../services/logo-service.js';
 import {
   confirmWinner,
   disqualifyWinner,
@@ -70,17 +71,6 @@ const dateSchema = z
     return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === d;
   }, 'This date does not exist');
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:mm');
-const logoSchema = z.object({
-  logoId: z.string().min(1).max(64),
-  productName: z.string().max(200),
-  companyName: z.string().max(200).nullable(),
-  logoCode: z.string().max(60).nullable(),
-  logoUrl: z.string().max(500).nullable(),
-});
-const logosSchema = z
-  .array(logoSchema)
-  .max(100, 'QuickLook counts at most 100 logos per session')
-  .refine((list) => new Set(list.map((l) => l.logoId)).size === list.length, 'A logo is selected twice');
 const sessionInput = z
   .object({
     name: z.string().min(1).max(60),
@@ -93,8 +83,6 @@ const sessionInput = z
       .array(z.object({ rank: z.number().int().min(1), prizeName: z.string().min(1).max(60) }))
       .max(50),
     allowPreviousWinners: z.boolean(),
-    /** Only when creating: the logos to start with (for example copied from an earlier session) */
-    logos: logosSchema.optional(),
   })
   .refine((s) => s.end > s.start, { message: 'The end time must be after the start time', path: ['end'] });
 
@@ -122,7 +110,6 @@ async function buildSession(
     winnersCount: input.winnersCount,
     prizes: input.prizes,
     allowPreviousWinners: input.allowPreviousWinners,
-    logos: existing?.logos ?? input.logos ?? [],
     finalized: existing?.finalized ?? false,
     createdAt: existing?.createdAt ?? nowIso(),
   };
@@ -157,8 +144,8 @@ const routes: Route[] = [
       sessions.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
       const items = await Promise.all(
         sessions.map(async (s) => {
-          const sync = await getSyncStatus(s.sessionId);
-          return { ...withStatus(s), players: sync?.participants ?? 0, sync: sync ?? null };
+          const [players, stats] = await Promise.all([playerCount(s.sessionId), getStats(s.sessionId)]);
+          return { ...withStatus(s), players, scans: stats.scans, lastScanAt: stats.lastScanAt };
         }),
       );
       return json({ items });
@@ -218,7 +205,7 @@ const routes: Route[] = [
           const problem = startEarlyProblem(session, await listSessionsByDate(today), today);
           if (problem) throw new HttpError(409, problem, START_EARLY_MESSAGES[problem]);
         }
-        // The scan period sent to QuickLook follows these times, so they keep the milliseconds:
+        // The scan period follows these times, so they keep the milliseconds:
         // a scan in the last second before "End now" still counts
         const at = new Date().toISOString();
         const updated: HuntSession =
@@ -232,54 +219,21 @@ const routes: Route[] = [
     }),
   ),
   {
-    method: 'PUT',
-    path: `${BASE}/sessions/:sessionId/logos`,
-    handler: async (req) => {
-      const actor = await admin(req, WRITERS);
-      const session = await loadSession(req.params.sessionId);
-      if (session.finalized) {
-        throw new HttpError(409, 'SESSION_FINALIZED', 'The winners of this session are already worked out');
-      }
-      const { logos } = parseBody(z.object({ logos: logosSchema }), req);
-      const updated: HuntSession = { ...session, logos };
-      await saveSession(updated);
-      audit('hunt.session.logos', actor.username, { sessionId: session.sessionId, logos: logos.length });
-      // A running session is read again at once, so the leaderboard follows the new selection
-      if (huntStatus(updated) === 'open') await syncSession(updated);
-      return json(withStatus(updated));
-    },
-  },
-  {
     method: 'GET',
-    path: `${BASE}/quicklook-logos`,
+    path: `${BASE}/logos`,
     handler: async (req) => {
-      await admin(req, WRITERS);
-      const query = z
-        .object({
-          name: z.string().max(100).optional(),
-          company: z.string().max(100).optional(),
-          logoCode: z.string().max(100).optional(),
-          page: z.coerce.number().int().min(1).default(1),
-          pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        })
-        .parse(req.query);
-      return json(await searchLogos(query));
+      await admin(req, READERS);
+      return json({ items: await listEventLogos() });
     },
   },
   {
     method: 'POST',
-    path: `${BASE}/sessions/:sessionId/sync`,
+    path: `${BASE}/logos/load`,
     handler: async (req) => {
-      await admin(req, WRITERS);
-      const session = await loadSession(req.params.sessionId);
-      if (huntStatus(session) === 'scheduled') {
-        throw new HttpError(409, 'SESSION_NOT_STARTED', 'The session has not started yet');
-      }
-      if (session.finalized) {
-        throw new HttpError(409, 'SESSION_FINALIZED', 'The winners of this session are already worked out');
-      }
-      await syncSession(session);
-      return json({ sync: await getSyncStatus(session.sessionId) });
+      const actor = await admin(req, WRITERS);
+      const { loaded } = await loadLogosFromQuickLook();
+      audit('hunt.logos.loaded', actor.username, { loaded });
+      return json({ loaded, items: await listEventLogos() });
     },
   },
   {
@@ -289,13 +243,20 @@ const routes: Route[] = [
       await admin(req, READERS);
       const session = await loadSession(req.params.sessionId);
       const top = (await topParticipants(session.sessionId, 20))
-        .filter((p) => !p.disqualified && p.rank !== UNRANKED)
-        .slice(0, 10);
-      const sync = await getSyncStatus(session.sessionId);
+        .filter((p) => !p.disqualified)
+        .slice(0, 10)
+        .map((p, index) => ({ ...p, rank: index + 1 }));
+      const [players, stats, logos] = await Promise.all([
+        playerCount(session.sessionId),
+        getStats(session.sessionId),
+        listEventLogos(),
+      ]);
       return json({
         session: withStatus(session),
-        players: sync?.participants ?? 0,
-        sync: sync ?? null,
+        players,
+        scans: stats.scans,
+        lastScanAt: stats.lastScanAt,
+        eventLogos: logos.length,
         top,
       });
     },
@@ -306,10 +267,27 @@ const routes: Route[] = [
     handler: async (req) => {
       await admin(req, ['hunt-admin', 'viewer']);
       const session = await loadSession(req.params.sessionId);
-      const items = (await listParticipants(session.sessionId))
-        .filter((p) => p.rank !== UNRANKED)
-        .sort(rankOrder);
+      const all = await listParticipants(session.sessionId);
+      // Ranked players first, disqualified ones after them without a rank
+      const items = [
+        ...withRanks(all),
+        ...all.filter((p) => p.disqualified).map((p) => ({ ...p, rank: null })),
+      ];
       return json({ items });
+    },
+  },
+  {
+    method: 'GET',
+    path: `${BASE}/sessions/:sessionId/scans`,
+    handler: async (req) => {
+      await admin(req, ['hunt-admin', 'viewer']);
+      const session = await loadSession(req.params.sessionId);
+      const userId = z
+        .string()
+        .max(100)
+        .optional()
+        .parse(req.query.userId || undefined);
+      return json({ items: await listScans(session.sessionId, userId) });
     },
   },
   {

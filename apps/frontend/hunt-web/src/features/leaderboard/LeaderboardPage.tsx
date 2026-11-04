@@ -6,7 +6,6 @@ import { IconCrown } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { huntApi } from '../../api/hunt';
 import { Screen } from '../../components/layout/Screen';
-import { ButtonLink } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
 import { sessionRange } from '../../lib/format';
@@ -18,10 +17,7 @@ export function LeaderboardPage() {
   const data = board.data;
 
   return (
-    <Screen
-      badge={data?.session ? sessionRange(data.session) : undefined}
-      actions={<ButtonLink to="/me">My progress</ButtonLink>}
-    >
+    <Screen badge={data?.session ? sessionRange(data.session) : undefined}>
       <div className="flex flex-col items-center gap-2 text-center">
         <span className="glass flex items-center gap-2 rounded-full px-3.5 py-1 text-[12px] font-extrabold tracking-[0.16em] uppercase">
           <span

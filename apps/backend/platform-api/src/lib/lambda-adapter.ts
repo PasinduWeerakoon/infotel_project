@@ -23,6 +23,7 @@ export function toApiRequest(event: APIGatewayProxyEventV2): ApiRequest {
     body: safeJson(rawBody),
     rawBody,
     requestId: event.requestContext.requestId,
+    ip: event.requestContext.http.sourceIp ?? '',
   };
 }
 

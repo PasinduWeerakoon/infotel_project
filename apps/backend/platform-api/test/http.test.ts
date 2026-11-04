@@ -12,6 +12,7 @@ const request = (method: string, path: string, body?: unknown): ApiRequest => ({
   body,
   rawBody: body ? JSON.stringify(body) : '',
   requestId: 'test',
+  ip: '127.0.0.1',
 });
 
 const router = createRouter([

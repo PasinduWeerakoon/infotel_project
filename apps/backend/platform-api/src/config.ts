@@ -46,6 +46,11 @@ const envSchema = z.object({
   QL_CLIENT_SECRET: z.string().optional(),
   QL_WEBHOOK_SECRETS: z.string().optional(),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().optional(),
+
+  // QuickLook partner link (`?qUser=` on the logo link, see services/partner-link.ts)
+  PARTNER_LINK_KEY: z.string().optional(),
+  PARTNER_LINK_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
+  PARTNER_LINK_REQUIRE_TIME: z.enum(['true', 'false']).default('false'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -113,4 +118,25 @@ async function loadSecretsFromSsm(): Promise<Secrets> {
     qlClientSecret: required(names.client, values[names.client]),
     qlWebhookSecrets: required(names.webhook, values[names.webhook]).split(','),
   };
+}
+
+let partnerKeyCached: { key: string | null; at: number } | undefined;
+
+/**
+ * The key that opens QuickLook partner links, or null while it is not set (links with `qUser`
+ * are then refused). In AWS: `{SSM_PREFIX}/quicklook/partner-link-key`, cached 5 minutes.
+ */
+export async function getPartnerLinkKey(): Promise<string | null> {
+  if (partnerKeyCached && Date.now() - partnerKeyCached.at < SECRET_TTL_MS) return partnerKeyCached.key;
+  let key: string | undefined = env.PARTNER_LINK_KEY;
+  if (env.SECRETS_SOURCE === 'ssm') {
+    const name = `${required('SSM_PREFIX', env.SSM_PREFIX)}/quicklook/partner-link-key`;
+    const values = await getParametersByName<string>(
+      { [name]: {} },
+      { decrypt: true, maxAge: 300, throwOnError: false },
+    );
+    key = values[name] ? String(values[name]) : undefined;
+  }
+  partnerKeyCached = { key: key?.trim() || null, at: Date.now() };
+  return partnerKeyCached.key;
 }

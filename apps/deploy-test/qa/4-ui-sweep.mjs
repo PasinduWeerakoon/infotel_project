@@ -1,5 +1,6 @@
 // QA session 4: UI sweep (console errors, crashes, failed calls, horizontal overflow)
-import { createHash } from 'node:crypto';
+import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { ADMIN_PASSWORD, check, summary } from './lib.mjs';
 
@@ -85,22 +86,28 @@ await sweep('U3', 'games pages for broken links and status codes', small, async 
 });
 
 await sweep('U4', 'hunt phone flow at 360 px', small, async (p, notes) => {
-  // Sign a test player in (cookies on localhost are shared by every port), then scan two stall
-  // logos in the QuickLook mock and let the hunt read them
-  const token = `test_${crypto.randomUUID()}`;
-  await p.request.post('http://localhost:4000/auth/v1/scan-login', { data: { token, logoId: 'logo_game_dip' } });
-  const userId = `ql_test_${createHash('sha256').update(token).digest('hex').slice(0, 16)}`;
+  // QuickLook sends two scans of one player (encrypted with the local key), then the phone shows
+  // the leaderboard, where the player appears by number
+  const env = readFileSync(new URL('../../backend/treasure-hunt-api/.env', import.meta.url), 'utf8');
+  const key = Buffer.from(env.match(/^HUNT_SCAN_KEY=(.*)$/m)?.[1]?.trim() ?? '', 'hex');
+  const userId = `ui-sweep-${crypto.randomUUID()}`;
   for (const n of [1, 2]) {
-    await fetch('http://localhost:4010/_mock/leaderboard/scans', {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const payload = JSON.stringify({ logo_id: `0b6f2a10-1c1e-4a61-9a01-00000000000${n}`, user_id: userId, user_name: 'UI Sweep Player' });
+    const data = Buffer.concat([iv, cipher.update(payload), cipher.final(), cipher.getAuthTag()]).toString('hex');
+    await fetch('http://localhost:4002/integrations/quicklook/v1/hunt-scans', {
       method: 'POST',
-      body: JSON.stringify({ userId, fullName: 'UI Sweep Player', logoId: `0b6f2a10-1c1e-4a61-9a01-00000000000${n}` }),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ data }),
     });
   }
-  await new Promise((r) => setTimeout(r, 6000));
-  await p.goto('http://localhost:5174/me');
+  await new Promise((r) => setTimeout(r, 3500)); // the leaderboard is cached 3 seconds
+  await p.goto('http://localhost:5174/');
   await settle(p, 1500);
-  if (!(await p.getByText('Lanka Fibre Broadband').isVisible())) notes.push('my progress does not list the scanned logos');
-  for (const path of ['/me', '/leaderboard', '/nope']) {
+  if (!p.url().endsWith('/leaderboard')) notes.push('the hunt app does not open on the leaderboard');
+  if ((await p.locator('body').innerText()).includes('UI Sweep Player')) notes.push('the public leaderboard shows a name');
+  for (const path of ['/leaderboard', '/me', '/nope']) {
     await p.goto(`http://localhost:5174${path}`);
     await settle(p, 1500);
     await noOverflow(p, notes, path);
@@ -108,7 +115,7 @@ await sweep('U4', 'hunt phone flow at 360 px', small, async (p, notes) => {
 });
 
 const laptop = { viewport: { width: 1280, height: 800 } };
-const adminPages = ['/', '/games/sessions', '/games/prizes', '/games/allocation', '/games/logos', '/games/plays', '/games/settings', '/hunt/sessions', '/hunt/winners', '/desk', '/users'];
+const adminPages = ['/', '/games/sessions', '/games/prizes', '/games/allocation', '/games/logos', '/games/plays', '/games/settings', '/hunt/sessions', '/hunt/logos', '/hunt/winners', '/desk', '/users'];
 for (const [id, opts, label] of [['U5', laptop, 'laptop 1280'], ['U6', small, 'phone 360']]) {
   await sweep(id, `admin pages at ${label}: no errors`, opts, async (p, notes) => {
     await p.goto('http://localhost:5175/login');

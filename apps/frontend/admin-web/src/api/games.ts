@@ -3,6 +3,19 @@ import { http, qs } from './client';
 
 export type Game = 'spin' | 'lucky-dip';
 export const GAMES: Game[] = ['spin', 'lucky-dip'];
+/** One play in the plays report. The phone is masked, the collected fields are empty until collected */
+export interface PlayRow {
+  playedAt: string;
+  game: Game;
+  name: string;
+  phone: string;
+  userId: string;
+  prize: string;
+  reference: string;
+  collectedAt: string;
+  collectedBy: string;
+}
+
 export const GAME_LABELS: Record<Game, string> = { spin: 'Spin the Wheel', 'lucky-dip': 'Lucky Dip' };
 
 export type Status = 'scheduled' | 'open' | 'closed';
@@ -153,9 +166,7 @@ export const gamesApi = {
     http.get<ReferenceView>(`${B}/references/${encodeURIComponent(reference)}`),
   collect: (reference: string) =>
     http.post<ReferenceView>(`${B}/references/${encodeURIComponent(reference)}/collect`),
-  plays: (sessionId: string) =>
-    http.get<{ items: { playedAt: string; game: Game; userId: string; prize: string; reference: string }[] }>(
-      `${B}/reports/plays${qs({ sessionId })}`,
-    ),
-  playsCsvUrl: (sessionId: string) => `${B}/reports/plays${qs({ sessionId, format: 'csv' })}`,
+  plays: (sessionId: string) => http.get<{ items: PlayRow[] }>(`${B}/reports/plays${qs({ sessionId })}`),
+  downloadPlaysCsv: (sessionId: string, filename: string) =>
+    http.download(`${B}/reports/plays${qs({ sessionId, format: 'csv' })}`, filename),
 };

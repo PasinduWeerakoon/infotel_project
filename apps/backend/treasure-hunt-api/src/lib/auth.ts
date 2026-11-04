@@ -22,6 +22,8 @@ export const ADMIN_ROLES: AdminRole[] = ['super-admin', 'games-admin', 'hunt-adm
 export interface Visitor {
   userId: string;
   firstName: string;
+  /** True when the name came from a QuickLook partner link: shown as is, the player cannot change it */
+  nameLocked: boolean;
   expiresAt: number;
 }
 
@@ -33,8 +35,13 @@ export interface Admin {
 const encoder = new TextEncoder();
 const key = (secret: string) => encoder.encode(secret);
 
-export async function signVisitor(secret: string, userId: string, firstName: string): Promise<string> {
-  return new SignJWT({ typ: 'visitor', name: firstName.slice(0, 40) })
+export async function signVisitor(
+  secret: string,
+  userId: string,
+  name: string,
+  nameLocked = false,
+): Promise<string> {
+  return new SignJWT({ typ: 'visitor', name: name.slice(0, 60), ...(nameLocked ? { nl: true } : {}) })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuedAt()
@@ -58,7 +65,12 @@ export async function requireVisitor(req: ApiRequest, secret: string): Promise<V
   try {
     const { payload } = await jwtVerify(token, key(secret), { algorithms: ['HS256'] });
     if (payload.typ !== 'visitor' || !payload.sub) throw new Error('wrong token type');
-    return { userId: payload.sub, firstName: String(payload.name ?? ''), expiresAt: payload.exp ?? 0 };
+    return {
+      userId: payload.sub,
+      firstName: String(payload.name ?? ''),
+      nameLocked: payload.nl === true,
+      expiresAt: payload.exp ?? 0,
+    };
   } catch {
     throw new HttpError(401, 'SIGN_IN_REQUIRED', 'Your session has ended. Please sign in again');
   }

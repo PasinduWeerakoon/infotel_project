@@ -114,7 +114,7 @@ The reference is never sent to the screen.
 | GET | `/references/{reference}` | Prize desk lookup (prize, session, time, collected, player name and phone) | Prize desk |
 | GET | `/admin/v1/quicklook/users/{userId}/name` (platform) | Winner's display name from QuickLook, not stored | Prize desk |
 | POST | `/references/{reference}/collect` | Mark collected once (409 if already collected) | Prize desk |
-| GET | `/reports/plays?date=&format=csv` | Plays export (opaque IDs only) | Viewer and above |
+| GET | `/reports/plays?sessionId=&format=csv` | Plays of a session: time (Colombo), game, name, masked phone, QuickLook user ID, prize, reference, collected, collected at and by. Formula text is opened as plain text. Downloaded through the API client, which sends the admin header | Games admin, viewer |
 | GET | `/reports/summary?date=` | Given and remaining per session, game and prize | Viewer and above |
 | GET, PUT | `/settings` | Lock timeout, repeat-winner rule, unused prizes | Super admin |
 

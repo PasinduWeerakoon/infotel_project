@@ -1,8 +1,9 @@
 /**
- * A5: leaderboard and winners, from the standings read from QuickLook. After a session ends, the
- * final standings are read once more and the provisional winners are listed. Confirm each one,
- * or disqualify (everyone below moves up). Winners see the result on their phone only after
- * confirmation. Staff see names and mobile numbers; the public screen shows player numbers only.
+ * A5: leaderboard and winners, counted from the scans QuickLook sent. When a session ends, the
+ * standings are frozen, the provisional winners are listed and flagged on the participants.
+ * Confirm each one, or disqualify (everyone below moves up). Staff see names and QuickLook user
+ * IDs (the phone number is found with the ID in QuickLook); the public screen shows player numbers
+ * only. Pick another day or session to see its results.
  */
 import { IconExternalLink } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import { SessionPicker, defaultSessionId } from '../../components/SessionPicker'
 import { StatusTag } from '../../components/StatusTag';
 import { useAction } from '../../hooks/useAction';
 import { formatTime } from '../../lib/format';
+import { ParticipantsCard } from './ParticipantsCard';
 
 const SCREEN_WEB_URL = import.meta.env.VITE_SCREEN_WEB_URL ?? 'http://localhost:5176';
 
@@ -69,7 +71,7 @@ export function WinnersPage() {
     <>
       <PageHeader
         title="Leaderboard and winners"
-        description="Ranked by QuickLook: most stalls first, ties go to whoever reached the count first. The public screen shows player numbers only."
+        description="Most different logos first, a tie goes to whoever reached the count first. The public screen shows player numbers only."
         extra={
           <Button
             icon={<IconExternalLink size={16} />}
@@ -92,12 +94,11 @@ export function WinnersPage() {
             <Card title={session?.status === 'closed' ? 'Final standings' : 'Live top 10'}>
               <Flex gap={24} align="flex-end" style={{ marginBottom: 12 }}>
                 <Statistic title="Players" value={live.data?.players ?? 0} />
-                <Typography.Text type={live.data?.sync?.error ? 'warning' : 'secondary'}>
-                  {live.data?.sync?.error
-                    ? live.data.sync.error
-                    : live.data?.sync?.lastSyncAt
-                      ? `Read from QuickLook at ${formatTime(live.data.sync.lastSyncAt)}`
-                      : 'Not read from QuickLook yet'}
+                <Statistic title="Scans" value={live.data?.scans ?? 0} />
+                <Typography.Text type="secondary">
+                  {live.data?.lastScanAt
+                    ? `Last scan at ${formatTime(live.data.lastScanAt)}`
+                    : 'No scans yet'}
                 </Typography.Text>
               </Flex>
               <Table
@@ -116,7 +117,7 @@ export function WinnersPage() {
                       </Flex>
                     ),
                   },
-                  { title: 'Stalls', dataIndex: 'stalls', align: 'right' },
+                  { title: 'Logos', dataIndex: 'stalls', align: 'right' },
                   { title: 'Points', dataIndex: 'points', align: 'right' },
                 ]}
               />
@@ -159,13 +160,14 @@ export function WinnersPage() {
                       render: (_, w) => (
                         <Flex vertical>
                           <Typography.Text strong>{w.fullName}</Typography.Text>
-                          <Typography.Text type="secondary">
-                            #{w.playerNumber}, {w.mobile}
+                          <Typography.Text type="secondary">#{w.playerNumber}</Typography.Text>
+                          <Typography.Text code copyable style={{ fontSize: 12 }}>
+                            {w.userId}
                           </Typography.Text>
                         </Flex>
                       ),
                     },
-                    { title: 'Stalls', dataIndex: 'stalls', align: 'right' },
+                    { title: 'Logos', dataIndex: 'stalls', align: 'right' },
                     { title: 'Points', dataIndex: 'points', align: 'right' },
                     { title: 'Reached', dataIndex: 'reachedAt', render: formatTime },
                     {
@@ -207,6 +209,7 @@ export function WinnersPage() {
             </Card>
           </Col>
         </Row>
+        {sessionId ? <ParticipantsCard sessionId={sessionId} live={session?.status === 'open'} /> : null}
       </Flex>
     </>
   );

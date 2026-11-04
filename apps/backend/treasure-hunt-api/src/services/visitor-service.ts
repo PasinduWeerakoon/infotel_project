@@ -1,10 +1,11 @@
 /**
- * What visitors and the leaderboard screen see. Player numbers only on shared screens, never
- * names or phone numbers. Everything comes from the standings last read from QuickLook.
+ * What the leaderboard screen and phones see: player numbers and points only, never names or
+ * QuickLook user IDs. Everything comes from the scans QuickLook sent.
  */
 import { nearbySessions } from '../data/hunt-repo.js';
-import { getParticipant, getSyncStatus, listWinners, rankOf, topParticipants } from '../data/players-repo.js';
-import { UNRANKED, huntStatus, nextHuntSession, sessionToShow } from '../domain/rules.js';
+import { listEventLogos } from '../data/logos-repo.js';
+import { getStats, listWinners, playerCount, topParticipants } from '../data/players-repo.js';
+import { huntStatus, nextHuntSession, sessionToShow } from '../domain/rules.js';
 import type { HuntSession } from '../domain/types.js';
 import { nowIso } from '../lib/time.js';
 
@@ -30,62 +31,6 @@ export async function getStatus() {
   };
 }
 
-/** My progress in the session to show (current, or the latest ended one today). */
-export async function myProgress(userId: string) {
-  const sessions = await nearbySessions();
-  const session = sessionToShow(sessions);
-  const base = {
-    serverTime: nowIso(),
-    session: brief(session),
-    nextSession: brief(nextHuntSession(sessions)),
-  };
-  if (!session) return { ...base, player: null, visits: [], winner: null };
-
-  const [found, sync] = await Promise.all([
-    getParticipant(session.sessionId, userId),
-    getSyncStatus(session.sessionId),
-  ]);
-  const participant = found && found.rank !== UNRANKED ? found : undefined;
-  const logos = new Map(session.logos.map((l) => [l.logoId, l]));
-  const winner = session.finalized
-    ? ((await listWinners(session.sessionId)).find((w) => w.userId === userId && w.status === 'confirmed') ??
-      null)
-    : null;
-
-  return {
-    ...base,
-    player: participant
-      ? {
-          playerNumber: participant.playerNumber,
-          points: participant.points,
-          stalls: participant.stalls,
-          rank: await rankOf(participant),
-          players: sync?.participants ?? 0,
-        }
-      : null,
-    visits: (participant?.logos ?? [])
-      .filter((v) => logos.has(v.logoId))
-      .sort((a, b) => a.firstScannedAt.localeCompare(b.firstScannedAt))
-      .map((v) => ({
-        logoId: v.logoId,
-        name: logos.get(v.logoId)?.productName ?? '',
-        company: logos.get(v.logoId)?.companyName ?? null,
-        logoUrl: logos.get(v.logoId)?.logoUrl ?? null,
-        scannedAt: v.firstScannedAt,
-      })),
-    totalStalls: session.logos.length,
-    updatedAt: sync?.lastSyncAt ?? null,
-    winner: winner
-      ? {
-          rank: winner.rank,
-          prizeName: winner.prizeName,
-          playerNumber: winner.playerNumber,
-          collectedAt: winner.collectedAt,
-        }
-      : null,
-  };
-}
-
 // The leaderboard is read by screens and phones, so it is rebuilt at most every 3 seconds
 const leaderboardCache = new Map<string, { at: number; body: unknown }>();
 
@@ -107,9 +52,13 @@ export async function leaderboard(sessionId: string | undefined, top = 10) {
   if (session) {
     // Read a few extra in case some of the top players were disqualified
     const ranked = (await topParticipants(session.sessionId, top + 10))
-      .filter((p) => !p.disqualified && p.rank !== UNRANKED)
+      .filter((p) => !p.disqualified)
       .slice(0, top);
-    const sync = await getSyncStatus(session.sessionId);
+    const [stats, players, logos] = await Promise.all([
+      getStats(session.sessionId),
+      playerCount(session.sessionId),
+      listEventLogos(),
+    ]);
     const winners = session.finalized
       ? (await listWinners(session.sessionId)).filter((w) => w.status === 'confirmed')
       : [];
@@ -117,9 +66,9 @@ export async function leaderboard(sessionId: string | undefined, top = 10) {
       serverTime: nowIso(),
       session: brief(session),
       nextSession: brief(nextHuntSession(sessions)),
-      players: sync?.participants ?? 0,
-      stalls: session.logos.length,
-      updatedAt: sync?.lastSyncAt ?? null,
+      players,
+      stalls: logos.length,
+      updatedAt: stats.lastScanAt,
       top: ranked.map((p, i) => ({
         rank: i + 1,
         playerNumber: p.playerNumber,

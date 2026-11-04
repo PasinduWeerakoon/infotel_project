@@ -2,14 +2,13 @@
 
 Base URL: `https://api.<domain>` (to be confirmed). Conventions are the same as Project A ([api-plan](../03-lkdr-games-event/api-plan.md#1-conventions)). Full schema: [openapi.yaml](openapi.yaml).
 
-Visitor sign-in is a shared platform endpoint (see the [QuickLook contract](../06-quicklook-integration/integration-contract.md)). Scans are counted by QuickLook and read from its Leaderboard API (decision D-18), so the hunt has no scan endpoint.
+QuickLook's backend sends every scan to our scan endpoint (decision D-20, part E of the [QuickLook contract](../06-quicklook-integration/integration-contract.md)). Visitors do not sign in to the hunt.
 
 ## 1. Visitor APIs
 
 | Method | Path | Purpose | Main responses |
 |---|---|---|---|
 | GET | `/hunt/v1/status` | Current or next session, state, server time | 200 |
-| GET | `/hunt/v1/me` | Player number, points, rank, the logos found (name, company, first scanned), last read time | 200, 401 |
 | GET | `/hunt/v1/leaderboard?sessionId=&top=10` | Top N by rank (cached 3 to 5 s) | 200 |
 
 ### Example: leaderboard
@@ -35,25 +34,26 @@ Visitor sign-in is a shared platform endpoint (see the [QuickLook contract](../0
 
 | Method | Path | Purpose | Role |
 |---|---|---|---|
-| GET, POST | `/sessions?date=` | List (with players and the last read from QuickLook) and create sessions (optionally with the logos of another session) | Hunt admin |
+| GET, POST | `/sessions?date=` | List (with players, scans and the last scan time) and create sessions | Hunt admin |
 | PUT, DELETE | `/sessions/{sessionId}` | Update, delete (only before it starts) | Hunt admin |
-| POST | `/sessions/{sessionId}/start`, `/end` | Start or end early (the period sent to QuickLook follows) | Hunt admin |
-| PUT | `/sessions/{sessionId}/logos` | The QuickLook logos that count (at most 100, until finalized) | Hunt admin |
-| GET | `/quicklook-logos?name=&company=&logoCode=&page=` | Search QuickLook's registered logos | Hunt admin |
-| POST | `/sessions/{sessionId}/sync` | Read the standings from QuickLook now | Hunt admin |
-| GET | `/sessions/{sessionId}/live` | Players, last read, top 10 with names | Viewer and above |
-| GET | `/sessions/{sessionId}/participants` | Standings with names and mobile numbers | Hunt admin, viewer |
+| POST | `/sessions/{sessionId}/start`, `/end` | Start or end early (the scan period follows) | Hunt admin |
+| GET | `/logos` | The event logos | Viewer and above |
+| POST | `/logos/load` | Load the event logos from QuickLook (once, on the first day) | Hunt admin |
+| GET | `/sessions/{sessionId}/live` | Players, scans, last scan, top 10 with names | Viewer and above |
+| GET | `/sessions/{sessionId}/participants` | Ranked standings with user names, QuickLook user IDs and the winner flag | Hunt admin, viewer |
+| GET | `/sessions/{sessionId}/scans?userId=` | Every scan received (newest first) | Hunt admin, viewer |
 | GET | `/sessions/{sessionId}/winners` | Provisional and confirmed winners | Hunt admin, prize desk |
 | POST | `/sessions/{sessionId}/winners/{rank}/confirm` | Confirm a winner | Hunt admin |
 | POST | `/sessions/{sessionId}/winners/{rank}/disqualify` | Disqualify, next rank moves up | Hunt admin |
 | POST | `/sessions/{sessionId}/winners/{rank}/collect` | Mark the prize collected once | Prize desk |
 | GET | `/winners?date=` | Confirmed winners of a day (prize desk) | Hunt admin, prize desk |
 
-## 3. QuickLook Leaderboard API (called by our backend)
+## 3. Scan API (called by QuickLook's backend)
 
-| Route | Used for |
-|---|---|
-| `GET /leaderboard/scans/export` (X-API-Key) | Standings of a session period for the selected logos, with full names and mobile numbers, up to 1,000 rows |
-| `GET /leaderboard/logos` (X-API-Key) | The logo search behind the admin's logo picker |
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/integrations/quicklook/v1/hunt-scans` | One stall logo scan, `{"data":"<hex>"}`, encrypted with the environment's scan key (part E of the QuickLook contract) |
 
-The key is per environment, kept in SSM and used only by the backend.
+## 4. QuickLook logo list (called by our backend once)
+
+The address, key and response are still to come from QuickLook. Until then our client follows the logo search of their Leaderboard API, which the QuickLook mock answers locally.

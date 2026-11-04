@@ -1,10 +1,11 @@
 /**
- * /q/:logoId?token=... — where a scanned logo lands.
+ * /q/:logoId?qUser=... — where a scanned logo lands.
  *
- * QuickLook opens this page with a temporary token. Our server exchanges the token for the
- * visitor, signs them in and records the scan, then the normal scan page takes over.
- * Testing without QuickLook (phone camera and a printed QR): there is no token, so this phone
- * gets its own test token, kept on the phone. One phone is then one player.
+ * QuickLook opens this page with the signed-in user, encrypted (`qUser`). Our server opens it,
+ * signs the visitor in with their QuickLook name and records the scan, then the normal scan page
+ * takes over. Without `qUser` the visitor is not signed in to the QuickLook app: the server says
+ * so, except in test environments, where this phone gets its own test token (one phone is then
+ * one player).
  */
 import { useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
@@ -37,16 +38,17 @@ export function QrPage() {
   useEffect(() => {
     if (started.current) return; // React may run effects twice in development
     started.current = true;
-    const token = params.get('token') ?? phoneTestToken();
+    const qUser = params.get('qUser');
+    const body = qUser ? { qUser, logoId } : { token: params.get('token') ?? phoneTestToken(), logoId };
 
-    post<{ scanId: string; url: string }>('/auth/v1/scan-login', { token, logoId })
+    post<{ scanId: string; url: string }>('/auth/v1/scan-login', body)
       .then(({ url }) => {
         const target = new URL(url);
         // Same app: move on without reloading. A logo of the other app opens that app.
         if (target.origin === window.location.origin) navigate(target.pathname, { replace: true });
         else window.location.replace(url);
       })
-      .catch((error) => handleError(error, `/q/${logoId}`));
+      .catch((error) => handleError(error, `/q/${logoId}${window.location.search}`));
   }, [logoId, params, navigate, handleError]);
 
   return (

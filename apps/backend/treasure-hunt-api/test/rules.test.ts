@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  UNRANKED,
   huntStatus,
   leaderboardKey,
   pickWinners,
   pointsFor,
   prizeForRank,
   scanPeriod,
+  sessionForScan,
   sessionToShow,
   startEarlyProblem,
+  withRanks,
 } from '../src/domain/rules.js';
 import type { HuntSession, Participant } from '../src/domain/types.js';
 
@@ -23,29 +24,26 @@ const session = (id: string, start: string, end: string, extra: Partial<HuntSess
   winnersCount: 3,
   prizes: [],
   allowPreviousWinners: false,
-  logos: [],
   finalized: false,
   createdAt: '2026-10-27T10:00:00+05:30',
   ...extra,
 });
 const at = (time: string) => new Date(`2026-11-02T${time}:00+05:30`);
-/** A participant as read from QuickLook: its rank already includes the tie-break */
+/** A participant with a count reached at a time of day */
 const player = (
   userId: string,
-  rank: number,
   stalls: number,
+  reachedAt: string,
   extra: Partial<Participant> = {},
 ): Participant => ({
   sessionId: 's1',
   userId,
-  playerNumber: rank,
+  playerNumber: userId.charCodeAt(0),
   fullName: `Player ${userId}`,
-  mobile: '0770000000',
-  rank,
   stalls,
   points: stalls * 10,
   totalScans: stalls,
-  reachedAt: '2026-11-02T10:00:00.000000+05:30',
+  reachedAt: `2026-11-02T${reachedAt}:00+05:30`,
   logos: [],
   disqualified: false,
   ...extra,
@@ -68,14 +66,30 @@ describe('hunt sessions', () => {
   });
 });
 
-describe('leaderboard order (QuickLook rank)', () => {
-  it('sorts by rank as text, so rank 2 comes before rank 10', () => {
-    expect(leaderboardKey(2) < leaderboardKey(10)).toBe(true);
-    expect(leaderboardKey(999) < leaderboardKey(1000)).toBe(true);
+describe('leaderboard order', () => {
+  it('puts the most different logos first, as text, so 10 logos come before 9', () => {
+    expect(leaderboardKey(10, '2026-11-02T11:00:00Z') < leaderboardKey(9, '2026-11-02T09:00:00Z')).toBe(true);
   });
 
-  it('puts players QuickLook no longer lists last', () => {
-    expect(leaderboardKey(1000) < leaderboardKey(UNRANKED)).toBe(true);
+  it('breaks a tie by who reached the count first', () => {
+    expect(leaderboardKey(5, '2026-11-02T09:00:00Z') < leaderboardKey(5, '2026-11-02T09:00:01Z')).toBe(true);
+    // The same moment in another timezone sorts the same
+    expect(leaderboardKey(5, '2026-11-02T14:30:00+05:30')).toBe(leaderboardKey(5, '2026-11-02T09:00:00Z'));
+  });
+
+  it('ranks 1, 2, 3 and leaves out disqualified players and players with no logos', () => {
+    const list = [
+      player('a', 3, '10:05'),
+      player('b', 5, '10:20'),
+      player('c', 3, '10:01'),
+      player('d', 9, '10:00', { disqualified: true }),
+      player('e', 0, '10:00'),
+    ];
+    expect(withRanks(list).map((p) => [p.userId, p.rank])).toEqual([
+      ['b', 1],
+      ['c', 2],
+      ['a', 3],
+    ]);
   });
 
   it('shows points as stalls times the points per stall', () => {
@@ -83,7 +97,28 @@ describe('leaderboard order (QuickLook rank)', () => {
   });
 });
 
-describe('scan period sent to QuickLook', () => {
+describe('the session a scan counts in', () => {
+  const morning = session('s1', '09:00', '12:00');
+  const afternoon = session('s2', '13:00', '15:00');
+
+  it('counts a scan inside a session, and not between or after sessions', () => {
+    expect(sessionForScan([morning, afternoon], at('11:59'))?.sessionId).toBe('s1');
+    expect(sessionForScan([morning, afternoon], at('12:30'))).toBeUndefined();
+    expect(sessionForScan([morning, afternoon], at('13:00'))?.sessionId).toBe('s2');
+    expect(sessionForScan([morning, afternoon], at('15:00'))).toBeUndefined();
+  });
+
+  it('follows "Start now" and "End now", and never counts in a finalized session', () => {
+    const ended = { ...morning, override: 'closed' as const, closedAt: '2026-11-02T05:00:00.000Z' }; // 10:30
+    expect(sessionForScan([ended], at('10:29'))?.sessionId).toBe('s1');
+    expect(sessionForScan([ended], at('10:31'))).toBeUndefined();
+    const early = { ...afternoon, override: 'open' as const, openedAt: '2026-11-02T07:00:00.000Z' }; // 12:30
+    expect(sessionForScan([early], at('12:45'))?.sessionId).toBe('s2');
+    expect(sessionForScan([{ ...morning, finalized: true }], at('10:00'))).toBeUndefined();
+  });
+});
+
+describe('scan period', () => {
   it('follows the session times', () => {
     expect(scanPeriod(session('s1', '09:00', '12:00'))).toEqual({
       start: '2026-11-02T09:00:00+05:30',
@@ -110,16 +145,21 @@ describe('scan period sent to QuickLook', () => {
 });
 
 describe('winners', () => {
-  // b and c have the same count: QuickLook ranked c first because c reached it earlier
-  const ranked = [player('b', 3, 7), player('a', 1, 9), player('d', 4, 6), player('c', 2, 7)];
+  // b and c have the same count: c reached it earlier, so c is ahead
+  const ranked = [
+    player('b', 7, '10:30'),
+    player('a', 9, '10:40'),
+    player('d', 6, '10:00'),
+    player('c', 7, '10:10'),
+  ];
 
-  it('takes the top N in QuickLook rank order', () => {
+  it('takes the top N in leaderboard order', () => {
     const winners = pickWinners({ ranked, count: 3, excludeUserIds: new Set() });
     expect(winners.map((w) => w.userId)).toEqual(['a', 'c', 'b']);
   });
 
   it('never picks a player with no stalls', () => {
-    const list = [player('a', 1, 2), player('z', UNRANKED, 0)];
+    const list = [player('a', 2, '10:00'), player('z', 0, '09:00')];
     expect(pickWinners({ ranked: list, count: 3, excludeUserIds: new Set() }).map((w) => w.userId)).toEqual([
       'a',
     ]);

@@ -9,8 +9,12 @@
 #   AWS_PROFILE=default EXPECTED_ACCOUNT=123456789012 npm run deploy
 # A second account keeps its own secrets and addresses in its own folder:
 #   AWS_PROFILE=1bt-training EXPECTED_ACCOUNT=550586832874 STATE_DIR=.state-1bt npm run deploy
-# Connect the Treasure Hunt to QuickLook's Leaderboard API (once per environment, see below):
+# Connect the Treasure Hunt to QuickLook's API for the event logo list (once per environment, see below):
 #   LEADERBOARD_BASE_URL=https://... LEADERBOARD_API_KEY=... npm run deploy
+# Open QuickLook partner links (`?qUser=` on the game logo links), once per environment:
+#   PARTNER_LINK_KEY=... npm run deploy
+# Run the real event on the same stacks and addresses (QuickLook sign in only, data kept):
+#   EVENT_MODE=1 AWS_PROFILE=1bt-training EXPECTED_ACCOUNT=550586832874 STATE_DIR=.state-1bt npm run deploy
 #
 # Order matters because the pieces need each other's addresses:
 #   platform -> games + hunt -> web apps -> platform again with the web app addresses
@@ -36,7 +40,12 @@ echo "Deploying stage $STAGE to account $ACCOUNT in $REGION (profile $AWS_PROFIL
 
 step() { printf '\n=== %s\n' "$1"; }
 output() { aws cloudformation describe-stacks --stack-name "$1" --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue" --output text; }
-cdk_deploy() { (cd "$1" && shift && npx cdk deploy --require-approval never -c stage=$STAGE "$@"); }
+# Event mode (EVENT_MODE=1): the same stacks and addresses run the real event. Sign in only through
+# QuickLook links (?qUser=), no test QR codes or test display, tables kept and protected, no demo data.
+if [ "${EVENT_MODE:-}" = 1 ]; then TOKEN_MODE=quicklook; KEEP_DATA=true; SKIP_SEED=1; else TOKEN_MODE=mock; KEEP_DATA=false; fi
+[ "$TOKEN_MODE" = quicklook ] && echo "Mode: event (QuickLook sign in only)" || echo "Mode: test (mock sign in allowed)"
+# Load tests from one machine: RATE_LIMIT_IP=0 turns the per-IP limit off (deploy again without it after)
+cdk_deploy() { (cd "$1" && shift && npx cdk deploy --require-approval never -c stage=$STAGE -c keepData=$KEEP_DATA ${RATE_LIMIT_IP:+-c rateLimitIp=$RATE_LIMIT_IP} "$@"); }
 
 # ---------------------------------------------------------------- secrets (created once, kept in .state)
 step "Secrets"
@@ -57,15 +66,20 @@ fi
 # Keys added after the first run (older .state files)
 grep -q '^SCREEN_KEY_MAIN=' "$STATE/secrets.env" ||
   echo "SCREEN_KEY_MAIN=scr_$(node -e "console.log(require('crypto').randomBytes(18).toString('base64url'))")" >> "$STATE/secrets.env"
+# The key QuickLook's backend encrypts the hunt scans with (32 bytes, hex), one per environment.
+# Share it with QuickLook outside email. It stays the same on every later deploy.
+grep -q '^HUNT_SCAN_KEY=' "$STATE/secrets.env" ||
+  echo "HUNT_SCAN_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")" >> "$STATE/secrets.env"
 set -a; source "$STATE/secrets.env"; set +a
 put() { aws ssm put-parameter --name "/lkdr/$STAGE/$1" --type SecureString --value "$2" --overwrite >/dev/null; }
 put platform/session-secret "$SESSION_SECRET"
 put platform/admin-secret "$ADMIN_SECRET"
 put quicklook/client-secret "$QL_CLIENT_SECRET"
+put hunt/scan-key "$HUNT_SCAN_KEY"
 put quicklook/webhook-secrets "$QL_WEBHOOK_SECRET"
 echo "Secrets stored in SSM Parameter Store under /lkdr/$STAGE/"
 
-# QuickLook Leaderboard API for the Treasure Hunt, per environment. Only stored when given, so a
+# QuickLook API for the Treasure Hunt event logo list, per environment. Only stored when given, so a
 # later deploy without them keeps what is there. The key is never written to .state or printed.
 #   LEADERBOARD_BASE_URL=https://... LEADERBOARD_API_KEY=... npm run deploy
 if [ -n "${LEADERBOARD_BASE_URL:-}" ]; then
@@ -76,6 +90,14 @@ fi
 if [ -n "${LEADERBOARD_API_KEY:-}" ]; then
   put hunt/leaderboard-api-key "$LEADERBOARD_API_KEY"
   echo "Leaderboard API key stored (SecureString)"
+fi
+
+# QuickLook partner link key: opens `?qUser=` on the game logo links. Same rules: only stored when
+# given, never written to .state or printed.
+#   PARTNER_LINK_KEY=<64 hex characters> npm run deploy
+if [ -n "${PARTNER_LINK_KEY:-}" ]; then
+  put quicklook/partner-link-key "$PARTNER_LINK_KEY"
+  echo "QuickLook partner link key stored (SecureString)"
 fi
 
 step "CDK bootstrap (once per account and region)"
@@ -89,7 +111,7 @@ SCREENS_URL="$(existing lkdr-$STAGE-web-screens Url)"
 
 platform() {
   cdk_deploy "$APPS/backend/platform-api" \
-    -c tokenMode=mock -c qlClientId=lkdr \
+    -c tokenMode=$TOKEN_MODE -c qlClientId=lkdr \
     -c gamesWebUrl="${GAMES_URL:-https://placeholder.invalid}" -c huntWebUrl="${HUNT_URL:-https://placeholder.invalid}"
 }
 
@@ -108,16 +130,17 @@ web_deploy() { (cd "$APPS/frontend/web-infra" && npx cdk deploy --require-approv
 # Visitor apps first: the screens show QR codes that open them (test mode), and admin links to the screens.
 # The games address opens the main display (both games on one big screen), which lives on the screens site.
 display_url() { echo "$SCREENS_URL/stall?key=$SCREEN_KEY_MAIN"; }
-build games-web ${SCREENS_URL:+VITE_TEST_DISPLAY_URL="$(display_url)"}; build hunt-web
+test_only() { [ "${EVENT_MODE:-}" = 1 ] || echo "$@"; } # build settings for test mode only
+build games-web $(test_only ${SCREENS_URL:+VITE_TEST_DISPLAY_URL="$(display_url)"}); build hunt-web
 web_deploy lkdr-$STAGE-web-games lkdr-$STAGE-web-hunt
 GAMES_URL="$(output lkdr-$STAGE-web-games Url)"
 HUNT_URL="$(output lkdr-$STAGE-web-hunt Url)"
-build screen-web VITE_SCREENS_WS_URL="$WS_URL" VITE_QR_GAMES_URL="$GAMES_URL" VITE_QR_HUNT_URL="$HUNT_URL"
+build screen-web VITE_SCREENS_WS_URL="$WS_URL" $(test_only VITE_QR_GAMES_URL="$GAMES_URL" VITE_QR_HUNT_URL="$HUNT_URL")
 web_deploy lkdr-$STAGE-web-screens
 FIRST_SCREENS_URL="${SCREENS_URL:-}"
 SCREENS_URL="$(output lkdr-$STAGE-web-screens Url)"
 if [ "$FIRST_SCREENS_URL" != "$SCREENS_URL" ]; then # first run: the screens address is known only now
-  build games-web VITE_TEST_DISPLAY_URL="$(display_url)"
+  build games-web $(test_only VITE_TEST_DISPLAY_URL="$(display_url)")
   web_deploy lkdr-$STAGE-web-games
 fi
 build admin-web VITE_SCREEN_WEB_URL="$SCREENS_URL"
@@ -149,7 +172,9 @@ step "Default logo artwork (skips logos that already have an image)"
 (cd "$HERE" && npx tsx upload-logos.ts)
 
 step "QR codes"
+if [ "${EVENT_MODE:-}" = 1 ]; then echo "Skipped (event mode: visitors scan the logos with QuickLook)"; else
 (cd "$HERE" && npx tsx make-qr.ts)
+fi
 
 cat <<EOF
 

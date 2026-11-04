@@ -23,6 +23,7 @@ const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/games/settings': page(() => import('../pages/games/SettingsPage'), 'SettingsPage'),
   '/hunt/sessions': page(() => import('../pages/hunt/HuntSessionsPage'), 'HuntSessionsPage'),
   '/hunt/winners': page(() => import('../pages/hunt/WinnersPage'), 'WinnersPage'),
+  '/hunt/logos': page(() => import('../pages/hunt/EventLogosPage'), 'EventLogosPage'),
   '/desk': page(() => import('../pages/PrizeDeskPage'), 'PrizeDeskPage'),
   '/users': page(() => import('../pages/UsersPage'), 'UsersPage'),
 };

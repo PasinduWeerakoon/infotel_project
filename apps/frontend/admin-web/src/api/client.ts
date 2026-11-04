@@ -48,7 +48,33 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+/** Downloads a file from the API (a plain link cannot send the admin header) */
+async function download(path: string, filename: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(path, { credentials: 'same-origin', headers: { 'x-lkdr-admin': '1' } });
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', 'Cannot reach the server. Check your connection');
+  }
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+    if (response.status === 401) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    throw new ApiError(
+      response.status,
+      data.error?.code ?? 'ERROR',
+      data.error?.message ?? 'The download failed',
+    );
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export const http = {
+  download,
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body: unknown = {}) => request<T>('POST', path, body),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),

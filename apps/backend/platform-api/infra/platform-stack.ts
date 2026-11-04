@@ -42,6 +42,8 @@ export class PlatformStack extends Stack {
     const { stage } = props;
     const ssmPrefix = `/lkdr/${stage}`;
     const isProd = stage === 'prod';
+    // Event data must survive a stack delete (prod, or the event running on the dev stacks)
+    const keepData = isProd || this.node.tryGetContext('keepData') === 'true';
 
     const table = new dynamodb.TableV2(this, 'PlatformTable', {
       tableName: `lkdr-${stage}-platform`,
@@ -50,7 +52,8 @@ export class PlatformStack extends Stack {
       billing: dynamodb.Billing.onDemand(),
       timeToLiveAttribute: 'ttl',
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      removalPolicy: keepData ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      deletionProtection: keepData,
     });
 
     const bus = new events.EventBus(this, 'GamesBus', { eventBusName: `lkdr-${stage}-games` });
@@ -91,6 +94,8 @@ export class PlatformStack extends Stack {
       GAMES_WEB_URL: props.gamesWebUrl,
       HUNT_WEB_URL: props.huntWebUrl,
       QL_TOKEN_MODE: props.tokenMode,
+      // Requests a minute per IP (scan sign in). -c rateLimitIp=0 turns it off for a load test
+      RATE_LIMIT_IP_PER_MINUTE: String(this.node.tryGetContext('rateLimitIp') ?? 600),
       EVENTS_MODE: 'eventbridge',
       EVENT_BUS_NAME: bus.eventBusName,
       ASSETS_MODE: 's3',

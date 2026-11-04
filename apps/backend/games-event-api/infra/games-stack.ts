@@ -34,6 +34,8 @@ export class GamesStack extends Stack {
     super(scope, id, props);
     const { stage } = props;
     const ssmPrefix = `/lkdr/${stage}`;
+    // Event data must survive a stack delete (prod, or the event running on the dev stacks)
+    const keepData = stage === 'prod' || this.node.tryGetContext('keepData') === 'true';
     const shared = (name: string) =>
       ssm.StringParameter.valueForStringParameter(this, `${ssmPrefix}/platform/${name}`);
 
@@ -49,7 +51,8 @@ export class GamesStack extends Stack {
         partitionKey: { name: `${name}PK`, type: dynamodb.AttributeType.STRING },
         sortKey: { name: `${name}SK`, type: dynamodb.AttributeType.STRING },
       })),
-      removalPolicy: stage === 'prod' ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      removalPolicy: keepData ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      deletionProtection: keepData,
     });
 
     const platformTable = dynamodb.Table.fromTableArn(this, 'PlatformTable', shared('table-arn'));
@@ -67,6 +70,9 @@ export class GamesStack extends Stack {
       PLATFORM_TABLE_NAME: shared('table-name'),
       ASSETS_BASE_URL: shared('assets-base-url'),
       SCREENS_MODE: 'apigateway',
+      // Requests a minute per visitor and per IP. -c rateLimitIp=0 turns the IP limit off for a load test
+      RATE_LIMIT_VISITOR_PER_MINUTE: String(this.node.tryGetContext('rateLimitVisitor') ?? 60),
+      RATE_LIMIT_IP_PER_MINUTE: String(this.node.tryGetContext('rateLimitIp') ?? 600),
       WS_CALLBACK_URL: webSocketStage.callbackUrl,
       SECRETS_SOURCE: 'ssm',
       SSM_PREFIX: ssmPrefix,
