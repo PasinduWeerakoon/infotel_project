@@ -2,11 +2,13 @@
  * Scan by redirect: QuickLook opens our page with a temporary token and the scanned logo.
  *
  *   POST /auth/v1/scan-login   { qUser | token, logoId }   -> { scanId, url, name, nameLocked }
+ *   POST /auth/v1/guest-login  { logoId, name, phone }     -> the same (games only)
  *
  * QuickLook partner link (the event): the logo link carries `?qUser=<encrypted user>`. The server
  * opens it (services/partner-link.ts), so the visitor is the QuickLook user and their name is
- * locked. A link without `qUser` means the visitor is not signed in to the QuickLook app: it is
- * refused, except in mock mode, where test links keep working.
+ * locked. A link without `qUser` means the visitor is not signed in to the QuickLook app. For the
+ * two games they can still play as a guest: they type their name and phone, and the phone number is
+ * their identity (one play per number per session). The Treasure Hunt needs the QuickLook app.
  *
  * One call does what the webhook and sign in do together: the token is exchanged for the visitor
  * (mock for now), the visitor is signed in (session cookie), and the scan is recorded and published
@@ -16,11 +18,12 @@
  * keeps it in a long lived cookie and prefers that cookie, so the phone stays the same player even
  * when the browser forgets its local storage (tab closed, storage cleared after a while).
  */
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { type Config, getConfig, getPartnerLinkKey } from '../config.js';
 import { type Logo, getLogo } from '../data/logos-repo.js';
 import { type Scan, saveScanOnce } from '../data/scans-repo.js';
+import { normalizePhone } from '../domain/phone.js';
 import { VISITOR_COOKIE, VISITOR_SESSION_SECONDS, signVisitor } from '../lib/auth.js';
 import { type ApiRequest, HttpError, type Route, cookie, json, parseBody } from '../lib/http.js';
 import { logger } from '../lib/logger.js';
@@ -40,6 +43,35 @@ const input = z.object({
   token: z.string().min(8).max(500).optional(),
   logoId: z.string().regex(/^[a-z0-9_-]{2,60}$/),
 });
+
+const guestInput = z.object({
+  logoId: z.string().regex(/^[a-z0-9_-]{2,60}$/),
+  name: z.string().trim().min(2).max(60),
+  phone: z.string().trim().min(7).max(30),
+});
+
+/** A guest player of the two games: name and phone typed on the phone, the phone is the identity */
+async function guestLogin(req: ApiRequest) {
+  await rateLimit('scan-ip', req.ip, LIMITS.perIp);
+  const config = await getConfig();
+  const body = parseBody(guestInput, req);
+  const logo = await getLogo(body.logoId);
+  if (!logo || logo.logoType !== 'game') {
+    throw new HttpError(404, 'LOGO_NOT_FOUND', 'This QR code is not part of the games');
+  }
+  const phone = normalizePhone(body.phone);
+  if (!phone) throw new HttpError(422, 'PHONE_INVALID', 'Please check your phone number');
+  // Same number, same player. Keyed, so the ID does not give the number away.
+  const hash = createHmac('sha256', config.secrets.sessionSecret)
+    .update(`guest-phone:${phone}`)
+    .digest('hex');
+  return signInAndRecord(
+    config,
+    { userId: `guest_${hash.slice(0, 24)}`, name: body.name, nameLocked: true, phone },
+    logo,
+    [],
+  );
+}
 
 async function scanLogin(req: ApiRequest) {
   await rateLimit('scan-ip', req.ip, LIMITS.perIp);
@@ -108,7 +140,7 @@ async function partnerLogin(config: Config, qUser: string, logo: Logo) {
 /** Signs the visitor in and records the scan exactly like a webhook scan */
 async function signInAndRecord(
   config: Config,
-  visitor: { userId: string; name: string; nameLocked: boolean },
+  visitor: { userId: string; name: string; nameLocked: boolean; phone?: string },
   logo: Logo,
   extraCookies: string[],
 ) {
@@ -132,11 +164,12 @@ async function signInAndRecord(
     visitor.userId,
     visitor.name,
     visitor.nameLocked,
+    visitor.phone ?? null,
   );
   logger.info('Scan by redirect', {
     scanId: scan.scanId,
     logoType: logo.logoType,
-    via: visitor.nameLocked ? 'partner-link' : config.QL_TOKEN_MODE,
+    via: visitor.phone ? 'guest' : visitor.nameLocked ? 'partner-link' : config.QL_TOKEN_MODE,
   });
   const body = {
     scanId: scan.scanId,
@@ -156,4 +189,7 @@ async function signInAndRecord(
   });
 }
 
-export const scanLoginRoutes: Route[] = [{ method: 'POST', path: '/auth/v1/scan-login', handler: scanLogin }];
+export const scanLoginRoutes: Route[] = [
+  { method: 'POST', path: '/auth/v1/scan-login', handler: scanLogin },
+  { method: 'POST', path: '/auth/v1/guest-login', handler: guestLogin },
+];

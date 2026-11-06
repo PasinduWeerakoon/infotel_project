@@ -50,6 +50,15 @@ export function leaderboardKey(stalls: number, reachedAt: string, userId: string
   return `${String(behind).padStart(6, '0')}#${new Date(reachedAt).toISOString()}#${userId}`;
 }
 
+/**
+ * When the player reached their count: the latest scan time of the logos counted. Scans can
+ * arrive out of order, so this is not simply the time of the scan that arrived last.
+ */
+export function countReachedAt(p: Pick<Participant, 'logos' | 'reachedAt'>): string {
+  const times = (p.logos ?? []).map((l) => new Date(l.firstScannedAt).getTime());
+  return times.length ? new Date(Math.max(...times)).toISOString() : p.reachedAt;
+}
+
 /** Orders participants exactly like the leaderboard index does. */
 export function rankOrder(a: Participant, b: Participant): number {
   const key = (p: Participant) => leaderboardKey(p.stalls, p.reachedAt, p.userId);

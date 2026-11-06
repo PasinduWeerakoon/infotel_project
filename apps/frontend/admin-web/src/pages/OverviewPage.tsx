@@ -26,6 +26,7 @@ import { PageHeader } from '../components/PageHeader';
 import { PageLoading } from '../components/PageLoading';
 import { useAction } from '../hooks/useAction';
 import { formatTime, shortId, timeRange } from '../lib/format';
+import { PlayerCell } from './hunt/WinnersCard';
 
 export function OverviewPage() {
   const { role } = useAuth();
@@ -56,6 +57,10 @@ function GamesLive({ canControl }: { canControl: boolean }) {
   const close = useAction((id: string) => gamesApi.closeSession(id), {
     success: 'Session ended',
     refresh: [['games']],
+  });
+  const release = useAction(gamesApi.releaseLock, {
+    success: (r) => (r.released ? 'Screen released' : 'The screen was not reserved'),
+    refresh: [['games', 'live']],
   });
 
   if (!live.data) return <PageLoading />;
@@ -160,6 +165,47 @@ function GamesLive({ canControl }: { canControl: boolean }) {
           </Row>
           <Table
             size="small"
+            rowKey="screenId"
+            pagination={false}
+            dataSource={screens}
+            title={() => <Typography.Text strong>TV screens</Typography.Text>}
+            columns={[
+              { title: 'Screen', dataIndex: 'name' },
+              {
+                title: 'Shows',
+                dataIndex: 'games',
+                render: (g: (typeof GAMES)[number][]) => g.map((x) => GAME_LABELS[x]).join(', '),
+              },
+              {
+                title: 'Status',
+                render: (_, s) =>
+                  s.connections === 0 ? (
+                    <Badge status="default" text="Offline" />
+                  ) : s.state === 'playing' ? (
+                    <Badge status="processing" text="Someone is playing" />
+                  ) : (
+                    <Badge status="success" text="Online, waiting" />
+                  ),
+              },
+              {
+                title: '',
+                align: 'right',
+                render: (_, s) =>
+                  canControl && s.state === 'playing' ? (
+                    <Popconfirm
+                      title="Free this screen?"
+                      description="Use this only if the player walked away. A visitor who has not started yet can scan again."
+                      onConfirm={() => release.mutate(s.screenId)}
+                    >
+                      <Button size="small">Release</Button>
+                    </Popconfirm>
+                  ) : null,
+              },
+            ]}
+            scroll={{ x: 600 }}
+          />
+          <Table
+            size="small"
             rowKey="entryId"
             pagination={false}
             dataSource={latestPlays}
@@ -222,7 +268,12 @@ function HuntLive() {
               dataSource={live.data?.top ?? []}
               columns={[
                 { title: 'Rank', render: (_: unknown, __: unknown, i: number) => i + 1, width: 70 },
-                { title: 'Player', dataIndex: 'playerNumber', render: (n: number) => `#${n}` },
+                {
+                  title: 'Player',
+                  render: (_: unknown, p: { fullName: string; playerNumber: number; userId: string }) => (
+                    <PlayerCell name={p.fullName} playerNumber={p.playerNumber} userId={p.userId} />
+                  ),
+                },
                 { title: 'Stalls', dataIndex: 'stalls' },
                 { title: 'Points', dataIndex: 'points' },
               ]}

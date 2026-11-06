@@ -37,8 +37,8 @@ QuickLook opens the game logo with the signed-in user, encrypted:
 | Lucky Dip | `https://games.<domain>/q/logo_game_dip?qUser=<hex>` |
 
 - `qUser` = hex of IV (12 bytes), AES-256-GCM ciphertext, auth tag (16 bytes). The key is 32 bytes, kept in SSM on our side (`/lkdr/{stage}/quicklook/partner-link-key`) and used only by the platform API.
-- Plaintext today: `{"user_id":"…","first_name":"…","last_name":"…"}`. We sign the visitor in with `user_id` (the same ID as the Leaderboard API) and show the full name locked. The phone number is typed in the popup.
-- No `qUser` means the visitor is not signed in to the QuickLook app, and we ask them to sign in and scan again.
+- Plaintext today: `{"user_id":"…","first_name":"…","last_name":"…"}`. We sign the visitor in with `user_id` (the same ID as the Leaderboard API) and use the full name. The visitor plays with no popup. After a win the result page asks only for the phone number, for the prize desk, and shows the reference once it is given (`POST /games/v1/entries/{entryId}/phone`).
+- No `qUser` means the visitor is not signed in to the QuickLook app. They can still play the two games as a guest: they type their name and phone number, and the phone number is their identity (one play per number per session, `POST /auth/v1/guest-login`). The Treasure Hunt needs the QuickLook app.
 - **To agree:** QuickLook adds `iat` (issue time, Unix seconds) so links expire after 5 minutes, and `logo_id` so a link works only for its game. We already check both when present.
 
 ## 3. B. Scan event webhook
@@ -166,7 +166,7 @@ QuickLook's backend calls our API once for every stall logo scan, straight away.
 ### Plaintext (JSON)
 | Field | Example | Needed | Meaning |
 |---|---|---|---|
-| `logo_id` | `0b6f2a10-1c1e-4a61-9a01-000000000001` | Yes | The scanned logo, the same ID as in the logo list |
+| `logo_id` | `0b6f2a10-1c1e-4a61-9a01-000000000001` | Yes | The scanned logo. QuickLook sends only the logos allocated to the Treasure Hunt, and each one counts |
 | `user_id` | `edef31a4-8dfb-4e60-81ea-dc7168aead6a` | Yes | The QuickLook user, the same ID as in the game links |
 | `user_name` | `Dilshan Amarasinghe` | Yes | Shown to staff only |
 | `scanned_at` | `2026-11-03T10:14:05+05:30` | Agreed to add | Scan time (ISO, or Unix seconds). Older than 5 minutes is refused (`400 MESSAGE_EXPIRED`), so a copied request cannot count again later |
@@ -175,11 +175,11 @@ QuickLook's backend calls our API once for every stall logo scan, straight away.
 ### Answers
 | HTTP | Body | Meaning |
 |---|---|---|
-| 200 | `{"received":true,"result":"counted"}` | Stored and counted (`repeat`, `unknown-logo`, `no-session` and `already-received` are also 200: stored, not counted) |
+| 200 | `{"received":true,"result":"counted"}` | Stored and counted (`repeat`, `no-session` and `already-received` are also 200: stored, not counted) |
 | 400 | `{"error":{"code":"MESSAGE_INVALID"}}` or `MESSAGE_EXPIRED` | Not stored. Do not resend |
 | 503 | `{"error":{"code":"NOT_READY"}}` | The key is not set up for this environment yet. Resend later |
 | 5xx | | Our side failed. Resend with the same `event_id` |
 
-### Logo list
-QuickLook gives us the event's logo list through an API, called once on the first day (staff press "Load logos from QuickLook"). **To agree:** its address, key and response. We read logo ID, name, company, code and image URL.
+### Logos
+There is no logo list. QuickLook sends scans of the logos allocated to the Treasure Hunt only, so every `logo_id` it sends counts (agreed 4 Nov 2026).
 

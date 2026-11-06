@@ -106,7 +106,7 @@ r = await send({ logo_id: logo(3), user_id: odd, user_name: '<img src=x onerror=
 const oddP = (await su.call('GET', `${S}/participants`)).data.items.find((p) => p.userId === odd);
 check('R29', 'any name is stored as plain text, trimmed to 60 characters (Sinhala and Tamil kept)', r.data?.result === 'counted' && oddP?.fullName.length <= 60 && oddP.fullName.includes('සිංහල'), JSON.stringify(oddP?.fullName));
 const lbText = await fetch(`${HUNT}/hunt/v1/leaderboard?top=50`).then((x) => x.text());
-check('R30', 'the public leaderboard never shows names or user IDs', !lbText.includes('qa-r-') && !lbText.includes('onerror'), lbText.slice(0, 200));
+check('R30', 'the public leaderboard never shows user IDs, and names are at most 60 characters', !lbText.includes('qa-r-') && JSON.parse(lbText).top.every((p) => typeof p.name === 'string' && p.name.length <= 60), lbText.slice(0, 200));
 
 // R31: leaderboard parameters
 const tops = await Promise.all(['0', '51', 'abc', '-1', '10.5'].map((t) => fetch(`${HUNT}/hunt/v1/leaderboard?top=${t}`).then((x) => x.status)));

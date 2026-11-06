@@ -136,7 +136,7 @@ When on, a visitor who has won a **main prize** on a given day can only win non-
 
 ## 8. Stall screen lock
 
-- One player at a time per stall screen. No queue.
+- One player at a time across both games: while someone plays Spin the Wheel, nobody can start Lucky Dip, and the other way round. No queue.
 - The lock is taken when the entry is created and released when the animation finishes.
 - If the visitor does not tap Play within 60 seconds (setting), the entry expires and the lock is released by the scheduler job.
 - Staff can release a stuck lock from the dashboard (audited).
@@ -159,6 +159,6 @@ Setting `unusedPrizes`:
 | Same scan used twice (refresh, shared link) | The second attempt returns the existing entry or result. A scan creates at most one entry |
 | Visitor signs in on another phone | Same opaque user ID, so the one-play rule still applies |
 | Prize pool empty for the session | Game shows "All prizes for this session have been given out" |
-| Admin changes an allocation during a session | Allowed only upward, or downward to no lower than the quantity already given. Audited |
+| Admin changes an allocation during a session | Allowed only upward, or downward to no lower than the quantity already given. Audited. One save is all or nothing: if a play gives one of its prizes at the same moment, the server checks again with the new counts and saves. Raising main prizes partway through makes the moments already passed winnable at once, so the next few players can win several main prizes in a row |
 | Two admins save allocations at the same moment | Saves run one after the other. The totals never go over stock |
 | Stall or leaderboard screen loses its connection | The screen shows "Connection lost. Reconnecting..." after 4 seconds, and after a minute asks staff to check its internet. It reconnects by itself and the message disappears |

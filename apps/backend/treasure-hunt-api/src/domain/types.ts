@@ -2,23 +2,14 @@
  * Core types of Project B (Treasure Hunt).
  *
  * Visitors scan stall logos with the QuickLook app. QuickLook's backend sends every scan to our
- * API, encrypted (decision D-20). We keep every scan, count each different event logo once per
- * visitor per session, rank and pick the winners. `userId` is QuickLook's user ID: staff map it to
- * the visitor's phone number in QuickLook. The event logos are loaded once from QuickLook and count
- * in every session.
+ * API, encrypted (decision D-20). We keep every scan, count each different logo once per visitor
+ * per session, rank and pick the winners. `userId` is QuickLook's user ID: staff map it to the
+ * visitor's phone number in QuickLook. QuickLook sends scans of the hunt's allocated logos only, so
+ * every logo it sends counts.
  */
 export interface RankPrize {
   rank: number;
   prizeName: string;
-}
-
-/** An event logo (stall), loaded once from QuickLook, counts in every session */
-export interface EventLogo {
-  logoId: string;
-  productName: string;
-  companyName: string | null;
-  logoCode: string | null;
-  logoUrl: string | null;
 }
 
 export interface HuntSession {

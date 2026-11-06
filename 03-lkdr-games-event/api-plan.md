@@ -29,7 +29,8 @@ Base URL: `https://api.<domain>` (to be confirmed). All times ISO 8601 with offs
 | GET | `/games/v1/status` | Current session, open games, screen state, next session | 200 |
 | POST | `/games/v1/entries` | Create an entry from a scan (checks scan, session, one play per session, screen lock) | 201, 409, 422 |
 | GET | `/games/v1/entries/{entryId}` | Entry state and result (for refresh and the result page) | 200, 404 |
-| POST | `/games/v1/entries/{entryId}/play` | Draw the prize, return the result and animation target. Both games need `{ player: { name, phone } }` typed on the phone (422 PLAYER_DETAILS_REQUIRED without it) | 200, 409, 422 |
+| POST | `/games/v1/entries/{entryId}/play` | Draw the prize, return the result and animation target. Both games need `{ player: { name, phone } }` typed on the phone (422 PLAYER_DETAILS_REQUIRED without it). A QuickLook player sends nothing: the server uses their name, and a win returns `phoneNeeded: true` | 200, 409, 422 |
+| POST | `/games/v1/entries/{entryId}/phone` | A QuickLook winner gives `{ phone }` for the prize desk. Checked (422 PHONE_INVALID), only the player's own win, given once, only before collection | 200, 404, 422 |
 | GET | `/games/v1/me/results` | The visitor's results and references for today | 200 |
 
 ### Example: create entry
@@ -69,7 +70,7 @@ Content-Type: application/json
 | `SESSION_CLOSED` | 409 | No open session. `details.nextSessionStartsAt` |
 | `GAME_PAUSED` | 409 | The game is paused by staff |
 | `ALREADY_PLAYED_THIS_SESSION` | 409 | The visitor already played in this session (either game) |
-| `GAME_IN_PROGRESS` | 409 | Another visitor is playing on the stall screen |
+| `GAME_IN_PROGRESS` | 409 | Another visitor is playing Spin the Wheel or Lucky Dip |
 | `NO_PRIZES_LEFT` | 409 | The session allocation for this game is used up |
 | `ENTRY_EXPIRED` | 409 | The entry was not played within the lock timeout |
 | `MAIN_PRIZE_ALREADY_WON` | 409 | Repeat-winner rule on, no non-main prizes left |

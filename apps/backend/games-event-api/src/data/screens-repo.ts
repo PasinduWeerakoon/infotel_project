@@ -47,12 +47,11 @@ export async function getScreen(screenId: string): Promise<Screen | undefined> {
  * The stall screen showing this game. Its ID is also the lock key, so one player at a time per screen.
  * A stall screen for just this game wins over a main display that follows several games.
  */
-export async function screenForGame(game: Game): Promise<Screen | undefined> {
-  const showing = (await listScreens()).filter((s) => s.games.includes(game));
-  return showing.find((s) => s.games.length === 1) ?? showing[0];
-}
-
-export const lockKeyFor = (screen: Screen | undefined, game: Game) => screen?.screenId ?? `game-${game}`;
+/**
+ * One player at a time across both games: a Spin the Wheel play and a Lucky Dip play share this
+ * single lock, so nobody can start either game while someone else is playing.
+ */
+export const PLAY_LOCK = 'games';
 
 export async function saveScreen(screen: Screen, previousKeyHash?: string): Promise<void> {
   await db.send(

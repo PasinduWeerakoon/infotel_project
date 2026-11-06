@@ -17,9 +17,6 @@ const envSchema = z.object({
   SSM_PREFIX: z.string().optional(),
   SESSION_SECRET: z.string().optional(),
   ADMIN_SECRET: z.string().optional(),
-  /** Local only: the QuickLook mock answers the logo list */
-  LEADERBOARD_BASE_URL: z.string().optional(),
-  LEADERBOARD_API_KEY: z.string().optional(),
   /** Local only: opens QuickLook's scan messages. In AWS: SSM {prefix}/hunt/scan-key */
   HUNT_SCAN_KEY: z.string().optional(),
   /** A scan message with a scan time older than this is refused */
@@ -57,40 +54,6 @@ export async function getSecrets(): Promise<Secrets> {
   }
   cached = { secrets, at: Date.now() };
   return secrets;
-}
-
-export interface LeaderboardConfig {
-  baseUrl: string;
-  apiKey: string;
-}
-
-let leaderboardCached: { config: LeaderboardConfig | null; at: number } | undefined;
-
-/**
- * QuickLook Leaderboard API address and key for this environment, or null while they are not set
- * (the hunt then shows "not connected" instead of failing).
- * In AWS: `{SSM_PREFIX}/hunt/leaderboard-base-url` and `{SSM_PREFIX}/hunt/leaderboard-api-key`.
- */
-export async function getLeaderboardConfig(): Promise<LeaderboardConfig | null> {
-  if (leaderboardCached && Date.now() - leaderboardCached.at < 300_000) return leaderboardCached.config;
-  let baseUrl: string | undefined;
-  let apiKey: string | undefined;
-  if (env.SECRETS_SOURCE === 'ssm') {
-    const url = `${env.SSM_PREFIX}/hunt/leaderboard-base-url`;
-    const key = `${env.SSM_PREFIX}/hunt/leaderboard-api-key`;
-    const values = await getParametersByName<string>(
-      { [url]: {}, [key]: {} },
-      { decrypt: true, maxAge: 300, throwOnError: false },
-    );
-    baseUrl = values[url] ? String(values[url]) : undefined;
-    apiKey = values[key] ? String(values[key]) : undefined;
-  } else {
-    baseUrl = env.LEADERBOARD_BASE_URL;
-    apiKey = env.LEADERBOARD_API_KEY;
-  }
-  const config = baseUrl && apiKey ? { baseUrl: baseUrl.replace(/\/+$/, ''), apiKey } : null;
-  leaderboardCached = { config, at: Date.now() };
-  return config;
 }
 
 let scanKeyCached: { key: string | null; at: number } | undefined;

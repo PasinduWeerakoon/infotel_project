@@ -2,15 +2,12 @@
  * Admin: live view, stall screens, prize desk and reports (prefix /admin/v1/games).
  *
  *   GET    /live
- *   GET    /screens                       POST /screens  { name, games } (key shown once)
- *   POST   /screens/:screenId/rotate-key  DELETE /screens/:screenId
+ *   GET    /screens                       (fixed: set up at deploy, their links never change)
  *   POST   /screens/:screenId/release-lock
  *   GET    /references?q=                 (reference ID or player name)
  *   GET    /references/:reference         POST /references/:reference/collect
  *   GET    /reports/plays?sessionId=&format=csv
  */
-import { randomBytes } from 'node:crypto';
-import { ulid } from 'ulid';
 import { z } from 'zod';
 import { getSecrets, imageUrl } from '../config.js';
 import { getSettings, listPrizes } from '../data/catalog-repo.js';
@@ -24,15 +21,7 @@ import {
   listPlays,
   listWins,
 } from '../data/entries-repo.js';
-import {
-  type Screen,
-  deleteScreen,
-  getScreen,
-  hashKey,
-  listConnections,
-  listScreens,
-  saveScreen,
-} from '../data/screens-repo.js';
+import { type Screen, getScreen, listConnections, listScreens } from '../data/screens-repo.js';
 import { getSession, listAllSessions, listAllocations, upcomingSessions } from '../data/sessions-repo.js';
 import { normalizeReference } from '../domain/reference.js';
 import { currentSession, nextSession } from '../domain/sessions.js';
@@ -110,7 +99,7 @@ async function live(req: ApiRequest) {
     games,
     screens: await Promise.all(
       screens.map(async (s) => {
-        const lock = locks.find((l) => l.lockKey === s.screenId && ms(l.expiresAt) > now);
+        const lock = locks.find((l) => s.games.includes(l.game) && ms(l.expiresAt) > now);
         return {
           ...(await publicScreen(s)),
           state: lock ? 'playing' : 'idle',
@@ -122,33 +111,9 @@ async function live(req: ApiRequest) {
   });
 }
 
-const screenInput = z.object({
-  name: z.string().min(1).max(60),
-  games: z.array(z.enum(GAMES as [Game, ...Game[]])).min(1),
-});
-
-const newScreenKey = () => `scr_${randomBytes(24).toString('base64url')}`;
-
 async function listAllScreens(req: ApiRequest) {
   await admin(req, READERS);
   return json({ items: await Promise.all((await listScreens()).map(publicScreen)) });
-}
-
-async function createScreen(req: ApiRequest) {
-  const actor = await admin(req, WRITERS);
-  const input = parseBody(screenInput, req);
-  const screenKey = newScreenKey();
-  const screen: Screen = {
-    screenId: `scr_${ulid().slice(-10).toLowerCase()}`,
-    ...input,
-    keyHash: hashKey(screenKey),
-    lastSeenAt: null,
-    createdAt: nowIso(),
-  };
-  await saveScreen(screen);
-  audit('games.screen.created', actor.username, { screenId: screen.screenId });
-  // The key is returned once. Only its hash is stored.
-  return json({ screen: await publicScreen(screen), screenKey }, 201);
 }
 
 async function loadScreen(screenId: string | undefined): Promise<Screen> {
@@ -157,31 +122,14 @@ async function loadScreen(screenId: string | undefined): Promise<Screen> {
   return screen;
 }
 
-async function rotateKey(req: ApiRequest) {
-  const actor = await admin(req, WRITERS);
-  const screen = await loadScreen(req.params.screenId);
-  const screenKey = newScreenKey();
-  await saveScreen({ ...screen, keyHash: hashKey(screenKey) }, screen.keyHash);
-  audit('games.screen.key-rotated', actor.username, { screenId: screen.screenId });
-  return json({ screen: await publicScreen(screen), screenKey });
-}
-
-async function removeScreen(req: ApiRequest) {
-  const actor = await admin(req, WRITERS);
-  const screen = await loadScreen(req.params.screenId);
-  await deleteScreen(screen);
-  audit('games.screen.deleted', actor.username, { screenId: screen.screenId });
-  return noContent();
-}
-
 /** Frees a stuck screen. An unplayed entry holding it expires, so that visitor can scan again. */
 async function releaseLock(req: ApiRequest) {
   const actor = await admin(req, WRITERS);
   const screen = await loadScreen(req.params.screenId);
-  const lock = (await listLocks()).find((l) => l.lockKey === screen.screenId);
+  const lock = (await listLocks()).find((l) => screen.games.includes(l.game));
   if (lock) {
     const entry = await getEntry(lock.entryId);
-    if (entry) await expireEntry({ ...entry, lockKey: screen.screenId });
+    if (entry) await expireEntry({ ...entry, lockKey: lock.lockKey });
     await notifyScreens(lock.game, { type: 'entry.ended', entryId: lock.entryId });
   }
   audit('games.screen.lock-released', actor.username, { screenId: screen.screenId, entryId: lock?.entryId });
@@ -271,9 +219,6 @@ async function playsReport(req: ApiRequest) {
 export const adminLiveRoutes: Route[] = [
   { method: 'GET', path: `${BASE}/live`, handler: live },
   { method: 'GET', path: `${BASE}/screens`, handler: listAllScreens },
-  { method: 'POST', path: `${BASE}/screens`, handler: createScreen },
-  { method: 'POST', path: `${BASE}/screens/:screenId/rotate-key`, handler: rotateKey },
-  { method: 'DELETE', path: `${BASE}/screens/:screenId`, handler: removeScreen },
   { method: 'POST', path: `${BASE}/screens/:screenId/release-lock`, handler: releaseLock },
   { method: 'GET', path: `${BASE}/references`, handler: searchReferences },
   { method: 'GET', path: `${BASE}/references/:reference`, handler: findReference },

@@ -105,7 +105,7 @@ export function StallScreen() {
         <div>
           <h1 className="font-display text-[5vh] font-bold">This screen is not set up</h1>
           <p className="mt-2 text-[2.6vh] text-haze">
-            Open the screen link from the admin dashboard (Logos and screens).
+            Please open the screen link you were given. Screen links never change.
           </p>
         </div>
       </div>
@@ -201,7 +201,7 @@ function PlayingView({
           {boxOpen ? 'Surprise!' : 'Opening the box...'}
         </h1>
         {name ? <p className="mt-[2vh] font-display text-[5vh] leading-tight font-bold">{name}</p> : null}
-        {play.player ? (
+        {play.player?.phone ? (
           <p className="mt-[1vh] text-[3vh] font-bold tracking-[0.08em] text-haze tabular-nums">
             {play.player.phone}
           </p>

@@ -2,12 +2,14 @@
  * Both games ask for the player's name and phone before playing. The prize desk uses them to
  * find the prize, and the big screens show the name with the prize. Nothing is validated,
  * only trimmed. The last details are remembered on this phone to save typing next time.
- * A visitor who came from the QuickLook app has their QuickLook name filled in and locked
- * (the server uses that name whatever is sent), so only the phone number is typed.
+ * A visitor who came from the QuickLook app is not asked before playing: the server uses their
+ * QuickLook name, and after a win the result page asks only for the phone number (`phoneOnly`).
+ * A guest (not signed in to QuickLook) sees this popup first, before the game opens (`guest`): it
+ * signs them in, so on the game page both are locked and the popup is not shown again.
  */
-import { IconArrowRight, IconLock } from '@tabler/icons-react';
+import { IconArrowRight } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type PlayerDetails, gamesApi } from '../../api/games';
 import { Button } from '../../components/ui/Button';
@@ -23,7 +25,7 @@ export function rememberedPlayer(): PlayerDetails {
   }
 }
 
-function remember(player: PlayerDetails) {
+export function rememberPlayer(player: PlayerDetails) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(player));
   } catch {
@@ -31,21 +33,58 @@ function remember(player: PlayerDetails) {
   }
 }
 
-export function PlayerDetailsSheet({ onDone }: { onDone: (player: PlayerDetails) => void }) {
-  const session = useQuery({ queryKey: ['session'], queryFn: gamesApi.session, staleTime: 60_000 });
+export function PlayerDetailsSheet({
+  onDone,
+  guest = false,
+  phoneOnly = false,
+  busy = false,
+  error = null,
+}: {
+  onDone: (player: PlayerDetails) => void;
+  /** Not signed in yet: the details sign the guest in */
+  guest?: boolean;
+  /** A QuickLook winner: only the phone number, for the prize desk */
+  phoneOnly?: boolean;
+  busy?: boolean;
+  /** A message under the phone number, for example a number that is not valid */
+  error?: string | null;
+}) {
+  const session = useQuery({
+    queryKey: ['session'],
+    queryFn: gamesApi.session,
+    staleTime: 60_000,
+    enabled: !guest && !phoneOnly,
+  });
   const lockedName = session.data?.nameLocked ? session.data.firstName : null;
-  const [typedName, setName] = useState(() => rememberedPlayer().name);
+  const lockedPhone = session.data?.phone ?? null;
+  const [name, setName] = useState(() => rememberedPlayer().name);
   const [phone, setPhone] = useState(() => rememberedPlayer().phone);
-  const name = lockedName ?? typedName;
-  const ready = !session.isPending && name.trim().length > 0 && phone.trim().length > 0;
+  const loading = !guest && !phoneOnly && session.isPending;
+  // A guest's details sign them in and a winner's phone is checked, so the server's minimums apply;
+  // otherwise anything typed is fine
+  const filled = phoneOnly
+    ? phone.trim().length >= 7
+    : guest
+      ? name.trim().length >= 2 && phone.trim().length >= 7
+      : name.trim().length > 0 && phone.trim().length > 0;
+  const ready = !loading && !busy && filled;
+  // A guest gave both before the game opened, and a QuickLook player gives the phone after a win:
+  // neither is asked before playing (an empty phone tells the server to ask after a win)
+  const skip = !guest && !phoneOnly && Boolean(lockedName);
+
+  useEffect(() => {
+    if (skip && lockedName) onDone({ name: lockedName, phone: lockedPhone ?? '' });
+  }, [skip, lockedName, lockedPhone, onDone]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!ready) return;
     const player = { name: name.trim().slice(0, 60), phone: phone.trim().slice(0, 30) };
-    remember(lockedName ? { name: typedName, phone: player.phone } : player);
+    rememberPlayer(phoneOnly ? { name, phone: player.phone } : player);
     onDone(player);
   };
+
+  if (loading || skip) return null;
 
   // On document.body, so the page's animated (transformed) layout cannot clip the full-screen overlay
   return createPortal(
@@ -61,34 +100,28 @@ export function PlayerDetailsSheet({ onDone }: { onDone: (player: PlayerDetails)
       >
         <div className="text-center">
           <h2 id="player-details-title" className="font-display text-[26px] font-bold">
-            Before you play
+            {phoneOnly ? 'One last step' : 'Before you play'}
           </h2>
           <p className="mt-1 text-[15px] text-haze">
-            Your name shows on the big screen with your prize. The prize desk uses your phone number.
+            {phoneOnly
+              ? 'Enter your phone number to get your reference. The prize desk uses it to give you your prize.'
+              : 'Your name shows on the big screen with your prize. The prize desk uses your phone number.'}
           </p>
         </div>
-        <Field label="Your name">
-          <input
-            value={name}
-            readOnly={Boolean(lockedName)}
-            aria-readonly={Boolean(lockedName)}
-            onChange={(e) => {
-              if (!lockedName) setName(e.target.value);
-            }}
-            maxLength={60}
-            autoComplete="name"
-            autoCapitalize="words"
-            enterKeyHint="next"
-            placeholder="For example Nimal Perera"
-            className={lockedName ? 'field cursor-default opacity-80' : 'field'}
-          />
-          {lockedName ? (
-            <span className="flex items-center gap-1.5 text-[13px] text-haze">
-              <IconLock className="size-4" stroke={2} aria-hidden />
-              From your QuickLook account
-            </span>
-          ) : null}
-        </Field>
+        {phoneOnly ? null : (
+          <Field label="Your name">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={60}
+              autoComplete="name"
+              autoCapitalize="words"
+              enterKeyHint="next"
+              placeholder="For example Nimal Perera"
+              className="field"
+            />
+          </Field>
+        )}
         <Field label="Phone number">
           <input
             value={phone}
@@ -99,12 +132,15 @@ export function PlayerDetailsSheet({ onDone }: { onDone: (player: PlayerDetails)
             autoComplete="tel"
             enterKeyHint="done"
             placeholder="For example 077 123 4567"
+            aria-invalid={Boolean(error)}
             className="field"
           />
+          {error ? <span className="text-[13px] font-bold text-coral">{error}</span> : null}
         </Field>
         <Button
           type="submit"
           disabled={!ready}
+          loading={busy}
           className="mx-auto mt-1"
           icon={<IconArrowRight className="size-6" stroke={2.2} aria-hidden />}
         >

@@ -4,8 +4,6 @@
  *   GET    /sessions?date=                     POST /sessions
  *   PUT    /sessions/:sessionId                DELETE /sessions/:sessionId (before it starts)
  *   POST   /sessions/:sessionId/start | end
- *   GET    /logos                              the event logos (count in every session)
- *   POST   /logos/load                         load the event logos from QuickLook (once)
  *   GET    /sessions/:sessionId/live           top 10, players, scans received, last scan
  *   GET    /sessions/:sessionId/participants   ranked, with QuickLook user IDs
  *   GET    /sessions/:sessionId/scans?userId=  every scan received (newest first)
@@ -23,7 +21,6 @@ import {
   listSessionsByDate,
   saveSession,
 } from '../data/hunt-repo.js';
-import { listEventLogos } from '../data/logos-repo.js';
 import {
   collectWinner,
   getStats,
@@ -45,7 +42,6 @@ import { type AdminRole, requireAdmin } from '../lib/auth.js';
 import { type ApiRequest, HttpError, type Route, json, noContent, parseBody } from '../lib/http.js';
 import { audit } from '../lib/logger.js';
 import { atColomboTime, colomboDate, nowIso } from '../lib/time.js';
-import { loadLogosFromQuickLook } from '../services/logo-service.js';
 import {
   confirmWinner,
   disqualifyWinner,
@@ -220,24 +216,6 @@ const routes: Route[] = [
   ),
   {
     method: 'GET',
-    path: `${BASE}/logos`,
-    handler: async (req) => {
-      await admin(req, READERS);
-      return json({ items: await listEventLogos() });
-    },
-  },
-  {
-    method: 'POST',
-    path: `${BASE}/logos/load`,
-    handler: async (req) => {
-      const actor = await admin(req, WRITERS);
-      const { loaded } = await loadLogosFromQuickLook();
-      audit('hunt.logos.loaded', actor.username, { loaded });
-      return json({ loaded, items: await listEventLogos() });
-    },
-  },
-  {
-    method: 'GET',
     path: `${BASE}/sessions/:sessionId/live`,
     handler: async (req) => {
       await admin(req, READERS);
@@ -246,17 +224,15 @@ const routes: Route[] = [
         .filter((p) => !p.disqualified)
         .slice(0, 10)
         .map((p, index) => ({ ...p, rank: index + 1 }));
-      const [players, stats, logos] = await Promise.all([
+      const [players, stats] = await Promise.all([
         playerCount(session.sessionId),
         getStats(session.sessionId),
-        listEventLogos(),
       ]);
       return json({
         session: withStatus(session),
         players,
         scans: stats.scans,
         lastScanAt: stats.lastScanAt,
-        eventLogos: logos.length,
         top,
       });
     },

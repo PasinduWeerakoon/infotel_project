@@ -52,7 +52,7 @@ Not covered here: the Exhibitor Portal, the TechBazar Offer Portal and the mypag
 | Sessions are defined by admins (date, start, end) and do not overlap | A and B |
 | Prizes are allocated to each session by admins, with an auto-split helper | A |
 | One play per visitor per session, across both Spin the Wheel and Lucky Dip | A |
-| One player at a time on the stall screen, no queue | A |
+| One player at a time across both games (Spin the Wheel and Lucky Dip), no queue | A |
 | Prize draw is random, weighted by the remaining quantity of each prize | A |
 | Points only from QuickLook's server-to-server scan events | B |
 | One point award per stall, per visitor, per session | B |
@@ -71,5 +71,5 @@ Full rules: [Project A rules](../03-lkdr-games-event/rules-sessions-and-prizes.m
 | Reference | The unique winning code shown on the visitor's phone, for example LKDR-SW-7K3Q9X |
 | Scan event | QuickLook's server-to-server message that a logo was scanned |
 | Opaque user ID | QuickLook's anonymous, per-application user ID (pairwise `sub`). We store only this |
-| Screen lock | The single record that allows one player at a time on the stall screen |
+| Play lock | The single record that allows one player at a time across both games |
 | Stall | A participating exhibitor stall in the Treasure Hunt, linked to one QuickLook logo |

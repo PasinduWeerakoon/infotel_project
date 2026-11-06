@@ -28,6 +28,8 @@ expectStatus('V5', "another visitor cannot play someone else's entry", await p2.
 
 // V6 second visitor on the same game while the screen is busy
 expectStatus('V6', 'second visitor on a busy Spin screen gets GAME_IN_PROGRESS', await p2.enter('logo_game_spin'), 409, 'GAME_IN_PROGRESS');
+// V6a one player at a time across both games: Lucky Dip waits while someone plays Spin
+expectStatus('V6a', 'Lucky Dip while someone plays Spin gets GAME_IN_PROGRESS', await p2.enter('logo_game_dip'), 409, 'GAME_IN_PROGRESS');
 
 // V6b Spin needs the name and phone typed on the phone
 expectStatus('V6b', 'Spin without name and phone gets PLAYER_DETAILS_REQUIRED', await p1.call('POST', `${GAMES}/games/v1/entries/${entryId}/play`), 422, 'PLAYER_DETAILS_REQUIRED');
@@ -45,6 +47,17 @@ check('V9', 'playing again later returns the same result', replay.data?.result?.
 // V10 one play per session across both games
 expectStatus('V10', 'same visitor scanning Lucky Dip gets ALREADY_PLAYED', await p1.enter('logo_game_dip'), 409, 'ALREADY_PLAYED_THIS_SESSION');
 await release('spin');
+
+// V10b many people scan Spin and Lucky Dip at the same moment: exactly one gets in
+const crowd = await Promise.all(Array.from({ length: 12 }, () => person()));
+const scans = await Promise.all(crowd.map((c, i) => c.scan(i % 2 ? 'logo_game_dip' : 'logo_game_spin')));
+const entered = await Promise.all(crowd.map((c, i) => c.call('POST', `${GAMES}/games/v1/entries`, { scanId: scans[i] })));
+const winners = entered.filter((r) => r.status === 201);
+check('V10b', '12 parallel scans across both games: one gets in, the rest wait', winners.length === 1 && entered.filter((r) => r.code === 'GAME_IN_PROGRESS').length === 11, entered.map((r) => r.status).join(' '));
+await release(winners[0]?.data?.game ?? 'spin');
+const free = await (await person()).enter('logo_game_dip');
+check('V10c', 'after release the next visitor can play the other game', free.status === 201, `${free.status} ${free.code ?? ''}`);
+await release('lucky-dip');
 
 // V11 a logo that is not a game (the Treasure Hunt display logo) cannot be scanned into a game
 expectStatus('V11', 'scanning a non-game logo is refused', await p2.call('POST', `${PLATFORM}/auth/v1/scan-login`, { token: `test_${crypto.randomUUID()}`, logoId: 'logo_hunt' }), 404, 'LOGO_NOT_FOUND');

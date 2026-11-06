@@ -1,6 +1,6 @@
 /**
  * Creates the `treasure-hunt` table in DynamoDB Local and adds demo data:
- * two sessions today and two tomorrow (locally with the QuickLook mock's eight hunt logos selected).
+ * two sessions a day. QuickLook sends scans of the hunt logos only, so there is no logo list.
  *
  *   npm run db:setup   (after the platform API's db:setup)
  */
@@ -53,27 +53,6 @@ async function createTable() {
   }
 }
 
-/**
- * The eight Treasure Hunt logos of the QuickLook mock (backend/quicklook-mock/src/leaderboard.ts),
- * the local event logos. In AWS staff load the real ones from QuickLook once ("Load logos").
- */
-const MOCK_EVENT_LOGOS = [
-  ['1', 'Lanka Fibre Broadband', 'Lanka Fibre', 'QL-0101'],
-  ['2', 'CeyCloud Hosting', 'CeyCloud', 'QL-0102'],
-  ['3', 'Serendib Payments', 'Serendib Pay', 'QL-0103'],
-  ['4', 'Kandy Code Academy', null, 'QL-0104'],
-  ['5', 'Ruhuna Robotics', 'Ruhuna Robotics', 'QL-0105'],
-  ['6', 'Lotus Mobile', 'Lotus Telecom', 'QL-0106'],
-  ['7', 'Galle Data Labs', 'Galle Data', 'QL-0107'],
-  ['8', 'Island Domains', 'LK Domain Registry', 'QL-0108'],
-].map(([n, productName, companyName, logoCode]) => ({
-  logoId: `0b6f2a10-1c1e-4a61-9a01-00000000000${n}`,
-  productName,
-  companyName,
-  logoCode,
-  logoUrl: null,
-}));
-
 async function seed() {
   const now = nowIso();
   // Today and the next days (SEED_DAYS, default 2)
@@ -118,17 +97,7 @@ async function seed() {
       );
     }
   }
-  // Locally the event logos are loaded straight away (in AWS staff load them from QuickLook)
-  if (LOCAL_ENDPOINT) {
-    for (const logo of MOCK_EVENT_LOGOS) {
-      await db.send(
-        new PutCommand({ TableName: TABLE, Item: { PK: 'LOGOS', SK: `LOGO#${logo.logoId}`, ...logo } }),
-      );
-    }
-  }
-  console.log(
-    `Seeded ${days.length * 2} hunt sessions${LOCAL_ENDPOINT ? ' and the mock QuickLook event logos' : ''}`,
-  );
+  console.log(`Seeded ${days.length * 2} hunt sessions`);
 }
 
 if (LOCAL_ENDPOINT) await createTable();

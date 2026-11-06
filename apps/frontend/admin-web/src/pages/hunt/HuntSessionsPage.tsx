@@ -1,11 +1,10 @@
 /**
  * Treasure Hunt sessions: time, points per stall, number of winners and prizes per rank.
- * QuickLook sends every stall scan; the event logos count in every session.
+ * QuickLook sends every scan of the hunt's logos; each logo counts once per visitor per session.
  */
-import { IconAlertTriangle, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Alert,
   Button,
   DatePicker,
   Drawer,
@@ -22,7 +21,6 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { type HuntSession, type HuntSessionInput, huntApi } from '../../api/hunt';
 import { useAuth } from '../../app/auth';
 import { hasRole } from '../../app/navigation';
@@ -40,7 +38,6 @@ export function HuntSessionsPage() {
   const { role } = useAuth();
   const canEdit = hasRole(role, ['hunt-admin']);
   const sessions = useQuery({ queryKey: ['hunt', 'sessions'], queryFn: () => huntApi.sessions() });
-  const logos = useQuery({ queryKey: ['hunt', 'logos'], queryFn: huntApi.logos });
   const [editing, setEditing] = useState<HuntSession | 'new' | null>(null);
   const refresh = [['hunt']];
   const items = sessions.data?.items ?? [];
@@ -52,7 +49,7 @@ export function HuntSessionsPage() {
     <>
       <PageHeader
         title="Treasure Hunt sessions"
-        description="A separate event. QuickLook sends every stall scan. Each event logo counts once per visitor per session, the most logos wins."
+        description="A separate event. QuickLook sends every scan of the hunt logos. Each logo counts once per visitor per session, the most logos wins."
         extra={
           canEdit ? (
             <Button type="primary" icon={<IconPlus size={16} />} onClick={() => setEditing('new')}>
@@ -61,21 +58,6 @@ export function HuntSessionsPage() {
           ) : null
         }
       />
-      {logos.data && logos.data.items.length === 0 ? (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<IconAlertTriangle size={16} />}
-          style={{ marginBottom: 16 }}
-          message="No event logos yet"
-          description={
-            <>
-              Scans are kept but do not count until the logos are loaded. Open{' '}
-              <Link to="/hunt/logos">Event logos</Link> and load them from QuickLook.
-            </>
-          }
-        />
-      ) : null}
       <Table
         rowKey="sessionId"
         loading={sessions.isLoading}

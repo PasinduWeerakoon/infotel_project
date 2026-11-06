@@ -32,7 +32,7 @@ This JSON is encrypted and sent as `data`.
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `logo_id` | Yes | The scanned logo, the same ID as in the event logo list |
+| `logo_id` | Yes | The scanned logo. Send only the logos allocated to the Treasure Hunt: every logo sent counts |
 | `user_id` | Yes | The QuickLook user, the same ID as in the game links |
 | `user_name` | Yes | The user's name, shown to event staff only |
 | `scanned_at` | Yes (agreed) | Scan time, ISO 8601 with timezone or Unix seconds. A scan older than 5 minutes is refused |
@@ -87,7 +87,6 @@ HTTP 200 means the scan was stored. The `result` says what happened.
 | --- | --- |
 | `counted` | First scan of this logo by this user in the session. Points added |
 | `repeat` | This user already scanned this logo in the session. Stored, no points |
-| `unknown-logo` | Not an event logo. Stored, no points |
 | `no-session` | No session was running at the scan time. Stored, no points |
 | `already-received` | This `event_id` was received before. Not stored again |
 

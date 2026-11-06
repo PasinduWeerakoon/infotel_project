@@ -18,14 +18,14 @@ const PASSWORD_RULE = {
 };
 
 const ROLE_ACCESS: { area: string; roles: Role[] }[] = [
-  { area: 'Overview', roles: ['super-admin', 'games-admin', 'hunt-admin', 'prize-desk', 'viewer'] },
+  { area: 'Overview', roles: ['super-admin', 'event-admin', 'games-admin', 'hunt-admin', 'prize-desk', 'viewer'] },
   {
     area: 'Games Event: sessions, prizes, allocation, logos, screens',
-    roles: ['super-admin', 'games-admin'],
+    roles: ['super-admin', 'event-admin', 'games-admin'],
   },
-  { area: 'Treasure Hunt: sessions, stalls, winners', roles: ['super-admin', 'hunt-admin'] },
-  { area: 'Prize desk', roles: ['super-admin', 'games-admin', 'hunt-admin', 'prize-desk'] },
-  { area: 'Read-only views and reports', roles: ['super-admin', 'games-admin', 'hunt-admin', 'viewer'] },
+  { area: 'Treasure Hunt: sessions, stalls, winners', roles: ['super-admin', 'event-admin', 'hunt-admin'] },
+  { area: 'Prize desk', roles: ['super-admin', 'event-admin', 'games-admin', 'hunt-admin', 'prize-desk'] },
+  { area: 'Read-only views and reports', roles: ['super-admin', 'event-admin', 'games-admin', 'hunt-admin', 'viewer'] },
   { area: 'Users and game rules', roles: ['super-admin'] },
 ];
 

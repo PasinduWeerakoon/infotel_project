@@ -1,12 +1,15 @@
 /**
  * /result/:entryId — the outcome (wireframes G3.4, G3.5, G4.4).
  * Won: prize, reference ID (on the phone only) and a celebration. Collected: a calm confirmation.
+ * A QuickLook winner first gives their phone number for the prize desk, then sees the reference.
  * Refresh and back always come back here.
  */
 import { IconCircleCheck, IconMoodSmile, IconTrophy } from '@tabler/icons-react';
-import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import type { EntryView } from '../../api/games';
+import { ApiError } from '../../api/client';
+import { type EntryView, type PlayerDetails, gamesApi } from '../../api/games';
 import { Screen } from '../../components/layout/Screen';
 import { ButtonLink } from '../../components/ui/Button';
 import { InfoRow } from '../../components/ui/Card';
@@ -14,9 +17,10 @@ import { PrizeImage } from '../../components/ui/PrizeImage';
 import { Spinner } from '../../components/ui/Spinner';
 import { StatusView } from '../../components/ui/StatusView';
 import { useApiErrorHandler } from '../../hooks/useApiError';
-import { useEntry } from '../../hooks/useEntry';
+import { entryKey, useEntry } from '../../hooks/useEntry';
 import { celebrate } from '../../lib/celebrate';
 import { formatTime, formatWhen, spacedReference } from '../../lib/format';
+import { PlayerDetailsSheet } from '../game/PlayerDetailsSheet';
 import { sessionBadge } from '../status/messages';
 
 export function ResultPage() {
@@ -46,6 +50,30 @@ function Won({ entry }: { entry: EntryView }) {
   const result = entry.result as NonNullable<EntryView['result']>;
   const prize = result.prize as NonNullable<typeof result.prize>;
   const celebrated = useRef(false);
+  const queryClient = useQueryClient();
+  const handleError = useApiErrorHandler();
+  const [busy, setBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  const savePhone = useCallback(
+    async ({ phone }: PlayerDetails) => {
+      setBusy(true);
+      setPhoneError(null);
+      try {
+        queryClient.setQueryData(
+          entryKey(entry.entryId),
+          await gamesApi.saveWinnerPhone(entry.entryId, phone),
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'PHONE_INVALID')
+          setPhoneError('Please check your phone number, for example 077 123 4567');
+        else handleError(error);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [entry.entryId, queryClient, handleError],
+  );
 
   useEffect(() => {
     if (celebrated.current) return;
@@ -58,11 +86,16 @@ function Won({ entry }: { entry: EntryView }) {
       badge={sessionBadge(entry.session)}
       centered
       actions={
-        <ButtonLink to="/done" replace>
-          Awesome!
-        </ButtonLink>
+        result.phoneNeeded ? null : (
+          <ButtonLink to="/done" replace>
+            Awesome!
+          </ButtonLink>
+        )
       }
     >
+      {result.phoneNeeded ? (
+        <PlayerDetailsSheet phoneOnly busy={busy} error={phoneError} onDone={savePhone} />
+      ) : null}
       <div className="flex flex-col items-center gap-1 text-center">
         <p className="rainbow-text font-display text-[46px] leading-none font-bold animate-pop">YOU WON!</p>
         <p className="text-[15px] font-semibold text-haze">Wow, look what you got</p>
@@ -82,7 +115,7 @@ function Won({ entry }: { entry: EntryView }) {
             Your reference
           </span>
           <span className="font-display text-[30px] font-bold tracking-[0.08em] text-night">
-            {spacedReference(result.reference ?? '')}
+            {result.phoneNeeded ? '•••• ••••' : spacedReference(result.reference ?? '')}
           </span>
         </div>
         <p className="mt-3 text-[14px] font-semibold text-night/60">Show this at the prize desk to collect</p>

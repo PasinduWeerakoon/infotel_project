@@ -32,6 +32,7 @@ import { PageHeader } from '../components/PageHeader';
 import { StatusTag } from '../components/StatusTag';
 import { useAction } from '../hooks/useAction';
 import { formatDateTime, formatTime } from '../lib/format';
+import { PlayerCell } from './hunt/WinnersCard';
 
 export function PrizeDeskPage() {
   const { role } = useAuth();
@@ -289,13 +290,7 @@ function HuntDesk() {
             {
               title: 'Winner',
               render: (_, w) => (
-                <Flex vertical>
-                  <Typography.Text strong>{w.fullName}</Typography.Text>
-                  <Typography.Text type="secondary">#{w.playerNumber}</Typography.Text>
-                  <Typography.Text code copyable style={{ fontSize: 12 }}>
-                    {w.userId}
-                  </Typography.Text>
-                </Flex>
+                <PlayerCell name={w.fullName} playerNumber={w.playerNumber} userId={w.userId} />
               ),
             },
             { title: 'Rank', dataIndex: 'rank' },
@@ -314,7 +309,7 @@ function HuntDesk() {
                   </Typography.Text>
                 ) : (
                   <Popconfirm
-                    title={`Hand over to ${w.fullName} (#${w.playerNumber})?`}
+                    title={`Hand over to ${w.fullName} (Player #${w.playerNumber})?`}
                     onConfirm={() => collect.mutate(w)}
                   >
                     <Button type="primary" size="small">

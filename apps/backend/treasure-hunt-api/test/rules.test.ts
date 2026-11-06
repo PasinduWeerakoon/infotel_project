@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  countReachedAt,
   huntStatus,
   leaderboardKey,
   pickWinners,
@@ -68,15 +69,23 @@ describe('hunt sessions', () => {
 
 describe('leaderboard order', () => {
   it('puts the most different logos first, as text, so 10 logos come before 9', () => {
-    expect(leaderboardKey(10, '2026-11-02T11:00:00Z', 'u1') < leaderboardKey(9, '2026-11-02T09:00:00Z', 'u1')).toBe(true);
+    expect(
+      leaderboardKey(10, '2026-11-02T11:00:00Z', 'u1') < leaderboardKey(9, '2026-11-02T09:00:00Z', 'u1'),
+    ).toBe(true);
   });
 
   it('breaks a tie by who reached the count first', () => {
-    expect(leaderboardKey(5, '2026-11-02T09:00:00Z', 'u9') < leaderboardKey(5, '2026-11-02T09:00:01Z', 'u1')).toBe(true);
+    expect(
+      leaderboardKey(5, '2026-11-02T09:00:00Z', 'u9') < leaderboardKey(5, '2026-11-02T09:00:01Z', 'u1'),
+    ).toBe(true);
     // The same moment in another timezone sorts the same
-    expect(leaderboardKey(5, '2026-11-02T14:30:00+05:30', 'u1')).toBe(leaderboardKey(5, '2026-11-02T09:00:00Z', 'u1'));
+    expect(leaderboardKey(5, '2026-11-02T14:30:00+05:30', 'u1')).toBe(
+      leaderboardKey(5, '2026-11-02T09:00:00Z', 'u1'),
+    );
     // Same count, same millisecond: the user ID decides, in the index and in the admin order alike
-    expect(leaderboardKey(5, '2026-11-02T09:00:00Z', 'a') < leaderboardKey(5, '2026-11-02T09:00:00Z', 'b')).toBe(true);
+    expect(
+      leaderboardKey(5, '2026-11-02T09:00:00Z', 'a') < leaderboardKey(5, '2026-11-02T09:00:00Z', 'b'),
+    ).toBe(true);
   });
 
   it('ranks 1, 2, 3 and leaves out disqualified players and players with no logos', () => {
@@ -211,5 +220,27 @@ describe('starting a hunt session early', () => {
     expect(startEarlyProblem(finalized, [first, finalized, third], '2026-11-02', at('12:30'))).toBe(
       'ALREADY_ENDED',
     );
+  });
+});
+
+describe('when a count was reached', () => {
+  const logos = (...times: string[]) => times.map((t, i) => ({ logoId: `l${i}`, firstScannedAt: t }));
+  it('is the latest scan time of the counted logos', () => {
+    expect(
+      countReachedAt({ reachedAt: 'x', logos: logos('2026-11-05T10:00:01Z', '2026-11-05T10:00:05Z') }),
+    ).toBe('2026-11-05T10:00:05.000Z');
+  });
+  it('does not move back when an older scan arrives last', () => {
+    expect(
+      countReachedAt({ reachedAt: 'x', logos: logos('2026-11-05T10:00:05Z', '2026-11-05T10:00:01Z') }),
+    ).toBe('2026-11-05T10:00:05.000Z');
+  });
+  it('compares times in any time zone', () => {
+    expect(
+      countReachedAt({ reachedAt: 'x', logos: logos('2026-11-05T15:30:05+05:30', '2026-11-05T10:00:01Z') }),
+    ).toBe('2026-11-05T10:00:05.000Z');
+  });
+  it('keeps the stored time when no logo counted yet', () => {
+    expect(countReachedAt({ reachedAt: '2026-11-05T10:00:00Z', logos: [] })).toBe('2026-11-05T10:00:00Z');
   });
 });

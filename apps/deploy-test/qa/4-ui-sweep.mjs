@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
-import { ADMIN_PASSWORD, check, summary } from './lib.mjs';
+import { ADMIN_PASSWORD, GAMES, adminAs, check, summary } from './lib.mjs';
 
 const browser = await chromium.launch({ channel: 'chrome' });
 const watch = (page, bag) => {
@@ -59,6 +59,9 @@ await sweep('U1', 'games phone flow at 360 px: scan, spin, result, done', small,
   if (p.url().includes('/play/')) notes.push('back button returns to a playable game page');
 });
 
+// Both games share one player lock. No TV shows the Spin result here, so free the screen for Lucky Dip.
+await (await adminAs()).call('POST', `${GAMES}/admin/v1/games/screens/scr_spin/release-lock`);
+
 await sweep('U2', 'Lucky Dip phone flow at 360 px', small, async (p, notes) => {
   await p.goto('http://localhost:5173/q/logo_game_dip');
   await p.waitForURL(/\/(play|status)\//, { timeout: 20000 });
@@ -106,7 +109,7 @@ await sweep('U4', 'hunt phone flow at 360 px', small, async (p, notes) => {
   await p.goto('http://localhost:5174/');
   await settle(p, 1500);
   if (!p.url().endsWith('/leaderboard')) notes.push('the hunt app does not open on the leaderboard');
-  if ((await p.locator('body').innerText()).includes('UI Sweep Player')) notes.push('the public leaderboard shows a name');
+  if (!(await p.locator('body').innerText()).includes('UI Sweep Player')) notes.push('the public leaderboard does not show the QuickLook name');
   for (const path of ['/leaderboard', '/me', '/nope']) {
     await p.goto(`http://localhost:5174${path}`);
     await settle(p, 1500);
@@ -115,7 +118,7 @@ await sweep('U4', 'hunt phone flow at 360 px', small, async (p, notes) => {
 });
 
 const laptop = { viewport: { width: 1280, height: 800 } };
-const adminPages = ['/', '/games/sessions', '/games/prizes', '/games/allocation', '/games/logos', '/games/plays', '/games/settings', '/hunt/sessions', '/hunt/logos', '/hunt/winners', '/desk', '/users'];
+const adminPages = ['/', '/games/sessions', '/games/prizes', '/games/allocation', '/games/logos', '/games/plays', '/games/settings', '/hunt/sessions', '/hunt/winners', '/desk', '/users'];
 for (const [id, opts, label] of [['U5', laptop, 'laptop 1280'], ['U6', small, 'phone 360']]) {
   await sweep(id, `admin pages at ${label}: no errors`, opts, async (p, notes) => {
     await p.goto('http://localhost:5175/login');

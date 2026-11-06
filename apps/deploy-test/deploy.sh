@@ -9,8 +9,6 @@
 #   AWS_PROFILE=default EXPECTED_ACCOUNT=123456789012 npm run deploy
 # A second account keeps its own secrets and addresses in its own folder:
 #   AWS_PROFILE=1bt-training EXPECTED_ACCOUNT=550586832874 STATE_DIR=.state-1bt npm run deploy
-# Connect the Treasure Hunt to QuickLook's API for the event logo list (once per environment, see below):
-#   LEADERBOARD_BASE_URL=https://... LEADERBOARD_API_KEY=... npm run deploy
 # Open QuickLook partner links (`?qUser=` on the game logo links), once per environment:
 #   PARTNER_LINK_KEY=... npm run deploy
 # Run the real event on the same stacks and addresses (QuickLook sign in only, data kept):
@@ -78,19 +76,6 @@ put quicklook/client-secret "$QL_CLIENT_SECRET"
 put hunt/scan-key "$HUNT_SCAN_KEY"
 put quicklook/webhook-secrets "$QL_WEBHOOK_SECRET"
 echo "Secrets stored in SSM Parameter Store under /lkdr/$STAGE/"
-
-# QuickLook API for the Treasure Hunt event logo list, per environment. Only stored when given, so a
-# later deploy without them keeps what is there. The key is never written to .state or printed.
-#   LEADERBOARD_BASE_URL=https://... LEADERBOARD_API_KEY=... npm run deploy
-if [ -n "${LEADERBOARD_BASE_URL:-}" ]; then
-  aws ssm put-parameter --name "/lkdr/$STAGE/hunt/leaderboard-base-url" --type String \
-    --value "$LEADERBOARD_BASE_URL" --overwrite >/dev/null
-  echo "Leaderboard API address stored"
-fi
-if [ -n "${LEADERBOARD_API_KEY:-}" ]; then
-  put hunt/leaderboard-api-key "$LEADERBOARD_API_KEY"
-  echo "Leaderboard API key stored (SecureString)"
-fi
 
 # QuickLook partner link key: opens `?qUser=` on the game logo links. Same rules: only stored when
 # given, never written to .state or printed.

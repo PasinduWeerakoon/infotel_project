@@ -2,13 +2,12 @@
  * Handles one scan QuickLook's backend sends (decision D-20):
  * 1. open the message (AES-256-GCM, the key per environment),
  * 2. keep the scan, whatever happens to it,
- * 3. count it when the logo is an event logo and the scan time is inside a session: the first scan
- *    of a logo by a visitor adds a stall, repeats do not.
+ * 3. count it when the scan time is inside a session: the first scan of a logo by a visitor adds a
+ *    stall, repeats do not. QuickLook sends only the hunt's allocated logos, so every logo counts.
  */
 import { randomBytes } from 'node:crypto';
 import { env, getHuntScanKey } from '../config.js';
 import { nearbySessions } from '../data/hunt-repo.js';
-import { listEventLogos } from '../data/logos-repo.js';
 import { bumpStats, recordLogoScan } from '../data/players-repo.js';
 import { forgetEvent, rememberEvent, saveScan } from '../data/scans-repo.js';
 import { sessionForScan } from '../domain/rules.js';
@@ -42,13 +41,11 @@ export async function receiveScan(data: string): Promise<{ result: ScanResult | 
 async function countAndKeep(message: ScanMessage): Promise<ScanResult> {
   const received = new Date();
   const scanTime = message.scannedAt ?? received;
-  const [sessions, logos] = await Promise.all([nearbySessions(), listEventLogos()]);
-  const session = sessionForScan(sessions, scanTime);
-  const isEventLogo = logos.some((l) => l.logoId === message.logoId);
+  const session = sessionForScan(await nearbySessions(), scanTime);
 
+  // QuickLook sends scans of the hunt's allocated logos only, so every logo counts
   let result: ScanResult = 'no-session';
-  if (session && !isEventLogo) result = 'unknown-logo';
-  if (session && isEventLogo) {
+  if (session) {
     result = await recordLogoScan({
       sessionId: session.sessionId,
       pointsPerStall: session.pointsPerStall,

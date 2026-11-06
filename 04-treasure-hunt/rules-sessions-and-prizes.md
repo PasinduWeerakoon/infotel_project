@@ -44,7 +44,7 @@ The score is the number of **different** selected logos scanned. Scanning one lo
 ## 5. Ranking and tie-break
 
 - QuickLook ranks by stalls, most first.
-- Ties go to whoever reached their final count first.
+- Ties go to whoever reached their final count first. That moment is the QuickLook scan time (`scanned_at`) of the latest logo counted, so scans that arrive out of order or late still rank correctly.
 - Ranks are 1, 2, 3 with no shared places. We keep QuickLook's order.
 - A visitor needs at least one stall to win.
 - The export lists at most 1,000 visitors. Below that, a visitor's page shows no rank until they move up.

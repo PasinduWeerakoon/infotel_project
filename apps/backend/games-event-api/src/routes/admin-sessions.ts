@@ -22,8 +22,8 @@ import {
   listAllSessions,
   listAllocations,
   listSessionsByDate,
+  saveAllocations,
   saveSession,
-  setAllocated,
   setSessionOverride,
   withAllocationLock,
 } from '../data/sessions-repo.js';
@@ -217,8 +217,21 @@ interface AllocationChange {
   allocated: number;
 }
 
-/** Validates against stock and already-given quantities, then saves every changed cell. */
-async function applyAllocation(changes: AllocationChange[]) {
+/**
+ * Validates against stock and already-given quantities, then saves every changed cell together.
+ * A play may give one of these prizes at the same moment: then it checks again with the new
+ * counts and saves, so a busy session never turns a save into an error or a half save.
+ */
+async function applyAllocation(input: AllocationChange[]) {
+  // The same cell twice: the last value wins, as when cells were saved one by one
+  const changes = [...new Map(input.map((c) => [`${c.sessionId}|${c.game}|${c.prizeId}`, c])).values()];
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    if ((await checkAndSaveAllocation(changes)) === 'saved') return;
+  }
+  throw new HttpError(409, 'ALLOCATION_BUSY', 'Prizes are being won right now. Please save again');
+}
+
+async function checkAndSaveAllocation(changes: AllocationChange[]): Promise<'saved' | 'changed'> {
   const [existing, prizes] = await Promise.all([listAllAllocations(), listPrizes()]);
   const known = new Set(prizes.map((p) => p.prizeId));
   const unknown = changes.find((c) => !known.has(c.prizeId));
@@ -252,7 +265,7 @@ async function applyAllocation(changes: AllocationChange[]) {
   if (problems.length > 0) {
     throw new HttpError(409, 'ALLOCATION_INVALID', problems.map((p) => p.message).join('. '), { problems });
   }
-  for (const row of rows) await setAllocated(row);
+  return saveAllocations(rows.map(({ key: _key, ...row }) => row));
 }
 
 /** One save at a time, each checked against the latest saved quantities. */

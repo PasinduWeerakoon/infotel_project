@@ -153,11 +153,6 @@ export const gamesApi = {
   settings: () => http.get<Settings>(`${B}/settings`),
   saveSettings: (input: Omit<Settings, 'paused'>) => http.put<Settings>(`${B}/settings`, input),
   screens: () => http.get<{ items: Screen[] }>(`${B}/screens`),
-  createScreen: (input: { name: string; games: Game[] }) =>
-    http.post<{ screen: Screen; screenKey: string }>(`${B}/screens`, input),
-  rotateScreenKey: (id: string) =>
-    http.post<{ screen: Screen; screenKey: string }>(`${B}/screens/${id}/rotate-key`),
-  deleteScreen: (id: string) => http.delete<void>(`${B}/screens/${id}`),
   releaseLock: (id: string) => http.post<{ released: boolean }>(`${B}/screens/${id}/release-lock`),
   /** Reference ID or part of a Spin the Wheel player's name */
   searchReferences: (q: string) =>

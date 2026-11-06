@@ -25,15 +25,6 @@ export interface HuntSession {
   lastScanAt?: string | null;
 }
 
-/** An event logo, loaded once from QuickLook, counts in every session */
-export interface EventLogo {
-  logoId: string;
-  productName: string;
-  companyName: string | null;
-  logoCode: string | null;
-  logoUrl: string | null;
-}
-
 export interface Participant {
   /** QuickLook's user ID: staff find the phone number with it in QuickLook */
   userId: string;
@@ -57,6 +48,7 @@ export interface ScanRecord {
   logoId: string;
   scannedAt: string;
   receivedAt: string;
+  /** unknown-logo only on scans kept before every logo counted */
   result: 'counted' | 'repeat' | 'unknown-logo' | 'no-session';
 }
 
@@ -97,15 +89,12 @@ export const huntApi = {
   deleteSession: (id: string) => http.delete<void>(s(id)),
   startSession: (id: string) => http.post<HuntSession>(`${s(id)}/start`),
   endSession: (id: string) => http.post<HuntSession>(`${s(id)}/end`),
-  logos: () => http.get<{ items: EventLogo[] }>(`${B}/logos`),
-  loadLogos: () => http.post<{ loaded: number; items: EventLogo[] }>(`${B}/logos/load`),
   live: (id: string) =>
     http.get<{
       session: HuntSession;
       players: number;
       scans: number;
       lastScanAt: string | null;
-      eventLogos: number;
       top: Participant[];
     }>(`${s(id)}/live`),
   participants: (id: string) => http.get<{ items: Participant[] }>(`${s(id)}/participants`),

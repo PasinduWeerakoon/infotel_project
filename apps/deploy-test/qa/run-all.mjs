@@ -2,7 +2,7 @@
 // Needs the local stack running (see apps/README.md, "Run everything on your computer").
 import { execFileSync } from 'node:child_process';
 
-const sessions = ['reset-local', '1-visitor-games', '2-admin', '3-treasure-hunt', '4-ui-sweep', '5-dates', '6-prize-spread', '7-rate-limits', '8-hunt-robustness'];
+const sessions = ['reset-local', '1-visitor-games', '2-admin', '3-treasure-hunt', '4-ui-sweep', '5-dates', '6-prize-spread', '7-rate-limits', '8-hunt-robustness', '9-guest-play', '10-quicklook-signed-in', '11-stock-limits', '12-hunt-winners', '13-live-allocation'];
 let failed = 0;
 for (const name of sessions) {
   console.log(`\n===== ${name}`);

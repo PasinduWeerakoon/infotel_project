@@ -3,8 +3,13 @@
  * QuickLook user IDs. Everything comes from the scans QuickLook sent.
  */
 import { nearbySessions } from '../data/hunt-repo.js';
-import { listEventLogos } from '../data/logos-repo.js';
-import { getStats, listWinners, playerCount, topParticipants } from '../data/players-repo.js';
+import {
+  getStats,
+  listWinners,
+  playerCount,
+  rankedParticipants,
+  topParticipants,
+} from '../data/players-repo.js';
 import { huntStatus, nextHuntSession, sessionToShow } from '../domain/rules.js';
 import type { HuntSession } from '../domain/types.js';
 import { nowIso } from '../lib/time.js';
@@ -34,8 +39,15 @@ export async function getStatus() {
 // The leaderboard is read by screens and phones, so it is rebuilt at most every 3 seconds
 const leaderboardCache = new Map<string, { at: number; body: unknown }>();
 
-export async function leaderboard(sessionId: string | undefined, top = 10) {
-  const key = `${sessionId ?? 'current'}|${top}`;
+/** Players per page of the phone leaderboard */
+export const PAGE_SIZE = 10;
+
+/**
+ * The top players (big screen), or with `page` one page of everyone (phone): ranks 1 to 10 on
+ * page 1, 11 to 20 on page 2 and so on, with the number of pages.
+ */
+export async function leaderboard(sessionId: string | undefined, top = 10, page?: number) {
+  const key = `${sessionId ?? 'current'}|${top}|${page ?? ''}`;
   const hit = leaderboardCache.get(key);
   if (hit && Date.now() - hit.at < 3000) return hit.body;
 
@@ -47,18 +59,17 @@ export async function leaderboard(sessionId: string | undefined, top = 10) {
     nextSession: brief(nextHuntSession(sessions)),
     top: [],
     players: 0,
+    ...(page ? { page, pages: 1 } : {}),
   };
 
   if (session) {
-    // Read a few extra in case some of the top players were disqualified
-    const ranked = (await topParticipants(session.sessionId, top + 10))
-      .filter((p) => !p.disqualified)
-      .slice(0, top);
-    const [stats, players, logos] = await Promise.all([
-      getStats(session.sessionId),
-      playerCount(session.sessionId),
-      listEventLogos(),
-    ]);
+    const everyone = page ? await rankedParticipants(session.sessionId) : undefined;
+    const offset = page ? (page - 1) * PAGE_SIZE : 0;
+    // Top players: read a few extra in case some of them were disqualified
+    const ranked = everyone
+      ? everyone.slice(offset, offset + PAGE_SIZE)
+      : (await topParticipants(session.sessionId, top + 10)).filter((p) => !p.disqualified).slice(0, top);
+    const [stats, players] = await Promise.all([getStats(session.sessionId), playerCount(session.sessionId)]);
     const winners = session.finalized
       ? (await listWinners(session.sessionId)).filter((w) => w.status === 'confirmed')
       : [];
@@ -67,11 +78,13 @@ export async function leaderboard(sessionId: string | undefined, top = 10) {
       session: brief(session),
       nextSession: brief(nextHuntSession(sessions)),
       players,
-      stalls: logos.length,
+      scans: stats.scans,
       updatedAt: stats.lastScanAt,
+      ...(everyone ? { page, pages: Math.max(1, Math.ceil(everyone.length / PAGE_SIZE)) } : {}),
       top: ranked.map((p, i) => ({
-        rank: i + 1,
+        rank: offset + i + 1,
         playerNumber: p.playerNumber,
+        name: p.fullName.trim(),
         points: p.points,
         stalls: p.stalls,
         reachedAt: p.reachedAt,
@@ -79,6 +92,7 @@ export async function leaderboard(sessionId: string | undefined, top = 10) {
       winners: winners.map((w) => ({
         rank: w.rank,
         playerNumber: w.playerNumber,
+        name: w.fullName.trim(),
         points: w.points,
         prizeName: w.prizeName,
       })),

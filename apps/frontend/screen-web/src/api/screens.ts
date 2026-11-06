@@ -57,9 +57,10 @@ export interface Leaderboard {
     | null;
   nextSession: SessionBrief | null;
   players: number;
-  stalls?: number;
-  top: { rank: number; playerNumber: number; points: number; stalls: number }[];
-  winners?: { rank: number; playerNumber: number; points: number; prizeName: string | null }[];
+  /** Scans received in the session */
+  scans?: number;
+  top: { rank: number; playerNumber: number; name?: string; points: number; stalls: number }[];
+  winners?: { rank: number; playerNumber: number; name?: string; points: number; prizeName: string | null }[];
 }
 
 export const screensApi = {
@@ -76,3 +77,7 @@ export function screensSocketUrl(screenKey: string): string {
 }
 
 export const GAME_NAMES: Record<Game, string> = { spin: 'Spin the Wheel', 'lucky-dip': 'Lucky Dip' };
+
+/** The QuickLook name on the leaderboards, or the player number when QuickLook sent no name */
+export const playerLabel = (row: { playerNumber: number; name?: string }) =>
+  row.name?.trim() || `Player #${row.playerNumber}`;

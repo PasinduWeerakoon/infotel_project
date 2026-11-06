@@ -5,7 +5,6 @@ import {
   IconAdjustments,
   IconCalendarEvent,
   IconChartBar,
-  IconDeviceTv,
   IconGift,
   IconLayoutDashboard,
   IconListNumbers,
@@ -30,7 +29,7 @@ export interface NavGroup {
 }
 
 const icon = (Component: typeof IconGift) => <Component size={18} stroke={1.7} />;
-const ALL: Role[] = ['games-admin', 'hunt-admin', 'prize-desk', 'viewer'];
+const ALL: Role[] = ['event-admin', 'games-admin', 'hunt-admin', 'prize-desk', 'viewer'];
 
 export const NAVIGATION: NavGroup[] = [
   { title: null, items: [{ path: '/', label: 'Overview', icon: icon(IconLayoutDashboard), roles: ALL }] },
@@ -55,7 +54,7 @@ export const NAVIGATION: NavGroup[] = [
         icon: icon(IconListNumbers),
         roles: ['games-admin', 'viewer'],
       },
-      { path: '/games/logos', label: 'Logos and screens', icon: icon(IconDeviceTv), roles: ['games-admin'] },
+      { path: '/games/logos', label: 'Logos', icon: icon(IconPhoto), roles: ['games-admin'] },
       {
         path: '/games/plays',
         label: 'Plays and reports',
@@ -72,12 +71,6 @@ export const NAVIGATION: NavGroup[] = [
         path: '/hunt/sessions',
         label: 'Sessions',
         icon: icon(IconCalendarEvent),
-        roles: ['hunt-admin', 'viewer'],
-      },
-      {
-        path: '/hunt/logos',
-        label: 'Event logos',
-        icon: icon(IconPhoto),
         roles: ['hunt-admin', 'viewer'],
       },
       {
@@ -106,7 +99,10 @@ export const NAVIGATION: NavGroup[] = [
 ];
 
 /** Super admins can do everything. Other roles only what is listed. */
-export const hasRole = (role: Role, roles: Role[]) => role === 'super-admin' || roles.includes(role);
+/** An event admin runs both the games and the hunt, without user management */
+const COVERS: Partial<Record<Role, Role[]>> = { 'event-admin': ['games-admin', 'hunt-admin'] };
+export const hasRole = (role: Role, roles: Role[]) =>
+  role === 'super-admin' || [role, ...(COVERS[role] ?? [])].some((r) => roles.includes(r));
 
 export const canSee = (role: Role, item: NavItem) => hasRole(role, item.roles);
 

@@ -11,7 +11,6 @@
  * | Winner      | SESSION#{sessionId}   | WINNER#{rank, 3 digits}         |                                     |
  * | Scan        | SCANS#{sessionId}     | {receivedAt}#{random}           | every scan as received              |
  * | Event ID    | EVENT#{eventId}       | META                            | a resent scan is stored once (TTL)  |
- * | Event logo  | LOGOS                 | LOGO#{logoId}                   | loaded once from QuickLook          |
  * | Day winner  | WINNERDAY#{date}      | USER#{userId}                   | previous-winner rule                |
  */
 export const keys = {
@@ -26,7 +25,6 @@ export const keys = {
   /** Scans outside any session are kept under the day they arrived */
   scans: (sessionId: string | null, day: string) => `SCANS#${sessionId ?? `NONE#${day}`}`,
   event: (eventId: string) => ({ PK: `EVENT#${eventId}`, SK: 'META' }),
-  logo: (logoId: string) => ({ PK: 'LOGOS', SK: `LOGO#${logoId}` }),
   dayWinner: (date: string, userId: string) => ({ PK: `WINNERDAY#${date}`, SK: `USER#${userId}` }),
 };
 

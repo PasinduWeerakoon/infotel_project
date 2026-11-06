@@ -9,7 +9,7 @@ QuickLook's backend sends every scan to our scan endpoint (decision D-20, part E
 | Method | Path | Purpose | Main responses |
 |---|---|---|---|
 | GET | `/hunt/v1/status` | Current or next session, state, server time | 200 |
-| GET | `/hunt/v1/leaderboard?sessionId=&top=10` | Top N by rank (cached 3 to 5 s) | 200 |
+| GET | `/hunt/v1/leaderboard?sessionId=&top=10&page=` | Top N by rank (cached 3 to 5 s). With `page` (from 1), one page of every player, 10 per page, with `page` and `pages` in the answer. The phone leaderboard uses pages, the big screen uses top 10 | 200 |
 
 ### Example: leaderboard
 ```json
@@ -37,8 +37,6 @@ QuickLook's backend sends every scan to our scan endpoint (decision D-20, part E
 | GET, POST | `/sessions?date=` | List (with players, scans and the last scan time) and create sessions | Hunt admin |
 | PUT, DELETE | `/sessions/{sessionId}` | Update, delete (only before it starts) | Hunt admin |
 | POST | `/sessions/{sessionId}/start`, `/end` | Start or end early (the scan period follows) | Hunt admin |
-| GET | `/logos` | The event logos | Viewer and above |
-| POST | `/logos/load` | Load the event logos from QuickLook (once, on the first day) | Hunt admin |
 | GET | `/sessions/{sessionId}/live` | Players, scans, last scan, top 10 with names | Viewer and above |
 | GET | `/sessions/{sessionId}/participants` | Ranked standings with user names, QuickLook user IDs and the winner flag | Hunt admin, viewer |
 | GET | `/sessions/{sessionId}/scans?userId=` | Every scan received (newest first) | Hunt admin, viewer |
@@ -54,6 +52,6 @@ QuickLook's backend sends every scan to our scan endpoint (decision D-20, part E
 |---|---|---|
 | POST | `/integrations/quicklook/v1/hunt-scans` | One stall logo scan, `{"data":"<hex>"}`, encrypted with the environment's scan key (part E of the QuickLook contract) |
 
-## 4. QuickLook logo list (called by our backend once)
+## 4. Logos
 
-The address, key and response are still to come from QuickLook. Until then our client follows the logo search of their Leaderboard API, which the QuickLook mock answers locally.
+There is no logo list. QuickLook sends scans of the hunt's allocated logos only, and every logo counts.

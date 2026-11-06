@@ -1,10 +1,11 @@
 /** Shared platform: admin sign in, users, logos, image uploads, QuickLook name lookup. */
 import { http } from './client';
 
-export type Role = 'super-admin' | 'games-admin' | 'hunt-admin' | 'prize-desk' | 'viewer';
+export type Role = 'super-admin' | 'event-admin' | 'games-admin' | 'hunt-admin' | 'prize-desk' | 'viewer';
 
 export const ROLE_LABELS: Record<Role, string> = {
   'super-admin': 'Super admin',
+  'event-admin': 'Event admin',
   'games-admin': 'Games admin',
   'hunt-admin': 'Hunt admin',
   'prize-desk': 'Prize desk',

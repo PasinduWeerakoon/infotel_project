@@ -6,18 +6,19 @@
  *   GET  /games/v1/entries/:entryId
  *   POST /games/v1/entries/:entryId/play   { player: { name, phone } } (needed for both games,
  *                                          the name is the QuickLook one when the session has it locked)
+ *   POST /games/v1/entries/:entryId/phone  { phone } (a QuickLook winner, after the win)
  */
 import { z } from 'zod';
 import { getSecrets } from '../config.js';
 import { requireVisitor } from '../lib/auth.js';
-import { type ApiRequest, type Route, json, parseBody } from '../lib/http.js';
+import { type ApiRequest, HttpError, type Route, json, parseBody } from '../lib/http.js';
 import { LIMITS, rateLimit } from '../lib/rate-limit.js';
-import { getStatus, playEntry, readEntry, startEntry } from '../services/play-service.js';
+import { addWinnerPhone, getStatus, playEntry, readEntry, startEntry } from '../services/play-service.js';
 
 /** Name and phone are only trimmed and limited in length, never validated */
 const playInput = z.object({
   player: z
-    .object({ name: z.string().trim().min(1).max(60), phone: z.string().trim().min(1).max(30) })
+    .object({ name: z.string().trim().min(1).max(60), phone: z.string().trim().max(30).default('') })
     .optional(),
 });
 
@@ -57,11 +58,27 @@ export const visitorRoutes: Route[] = [
     method: 'POST',
     path: '/games/v1/entries/:entryId/play',
     handler: async (req) => {
-      const { userId, firstName, nameLocked } = await visitor(req);
+      const { userId, firstName, nameLocked, phone } = await visitor(req);
       const { player } = parseBody(playInput, req);
-      // A name from a QuickLook link cannot be changed: the server uses it, whatever the phone sends
-      const details = player && nameLocked && firstName ? { ...player, name: firstName } : player;
+      // A QuickLook player (name locked, no phone in the session) plays first, the phone is asked
+      // after a win. A locked name and a guest's phone cannot be changed: the server uses them.
+      const phoneLater = nameLocked && Boolean(firstName) && !phone;
+      const typed = player ?? (phoneLater ? { name: firstName, phone: '' } : undefined);
+      const named = typed && nameLocked && firstName ? { ...typed, name: firstName } : typed;
+      const details = named && phone ? { ...named, phone } : named;
+      if (details && !details.phone && !phoneLater) {
+        throw new HttpError(422, 'PLAYER_DETAILS_REQUIRED', 'Please enter your name and phone number');
+      }
       return json(await playEntry(userId, req.params.entryId ?? '', details ?? null));
+    },
+  },
+  {
+    method: 'POST',
+    path: '/games/v1/entries/:entryId/phone',
+    handler: async (req) => {
+      const { userId } = await visitor(req);
+      const { phone } = parseBody(z.object({ phone: z.string().trim().min(1).max(30) }), req);
+      return json(await addWinnerPhone(userId, req.params.entryId ?? '', phone));
     },
   },
 ];

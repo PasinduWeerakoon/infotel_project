@@ -16,14 +16,37 @@ export const ADMIN_COOKIE = 'lkdr_admin';
 export const VISITOR_SESSION_SECONDS = 30 * 60;
 export const ADMIN_SESSION_SECONDS = 30 * 60;
 
-export type AdminRole = 'super-admin' | 'games-admin' | 'hunt-admin' | 'prize-desk' | 'viewer';
-export const ADMIN_ROLES: AdminRole[] = ['super-admin', 'games-admin', 'hunt-admin', 'prize-desk', 'viewer'];
+export type AdminRole =
+  | 'super-admin'
+  | 'event-admin'
+  | 'games-admin'
+  | 'hunt-admin'
+  | 'prize-desk'
+  | 'viewer';
+export const ADMIN_ROLES: AdminRole[] = [
+  'super-admin',
+  'event-admin',
+  'games-admin',
+  'hunt-admin',
+  'prize-desk',
+  'viewer',
+];
+
+/** An event admin runs both the games and the hunt, without user management */
+const COVERS: Partial<Record<AdminRole, AdminRole[]>> = { 'event-admin': ['games-admin', 'hunt-admin'] };
+
+/** Super admins may do everything, other roles what `allowed` lists (or a role they cover) */
+export function roleAllows(role: AdminRole, allowed: AdminRole[]): boolean {
+  return role === 'super-admin' || [role, ...(COVERS[role] ?? [])].some((r) => allowed.includes(r));
+}
 
 export interface Visitor {
   userId: string;
   firstName: string;
   /** True when the name came from a QuickLook partner link: shown as is, the player cannot change it */
   nameLocked: boolean;
+  /** Guest players (not signed in to QuickLook): the phone number they signed in with, also locked */
+  phone: string | null;
   expiresAt: number;
 }
 
@@ -40,8 +63,14 @@ export async function signVisitor(
   userId: string,
   name: string,
   nameLocked = false,
+  phone: string | null = null,
 ): Promise<string> {
-  return new SignJWT({ typ: 'visitor', name: name.slice(0, 60), ...(nameLocked ? { nl: true } : {}) })
+  return new SignJWT({
+    typ: 'visitor',
+    name: name.slice(0, 60),
+    ...(nameLocked ? { nl: true } : {}),
+    ...(phone ? { ph: phone } : {}),
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuedAt()
@@ -69,6 +98,7 @@ export async function requireVisitor(req: ApiRequest, secret: string): Promise<V
       userId: payload.sub,
       firstName: String(payload.name ?? ''),
       nameLocked: payload.nl === true,
+      phone: typeof payload.ph === 'string' ? payload.ph : null,
       expiresAt: payload.exp ?? 0,
     };
   } catch {
@@ -101,7 +131,7 @@ export async function requireAdmin(req: ApiRequest, secret: string, allowed: Adm
   }
   admin.role = account.role as AdminRole;
 
-  if (admin.role !== 'super-admin' && !allowed.includes(admin.role)) {
+  if (!roleAllows(admin.role, allowed)) {
     throw new HttpError(403, 'FORBIDDEN', 'Your role cannot do this');
   }
   return admin;

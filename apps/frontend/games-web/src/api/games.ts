@@ -44,6 +44,8 @@ export interface EntryView {
     reference: string | null;
     playedAt: string;
     collectedAt: string | null;
+    /** A QuickLook winner still has to give a phone for the prize desk */
+    phoneNeeded?: boolean;
     animation: { target: number; durationMs: number };
   } | null;
 }
@@ -57,11 +59,16 @@ export interface Logo {
 }
 
 export const gamesApi = {
-  session: () => api<{ firstName: string; nameLocked: boolean; expiresAt: string }>('/auth/v1/session'),
+  session: () =>
+    api<{ firstName: string; nameLocked: boolean; phone?: string | null; expiresAt: string }>(
+      '/auth/v1/session',
+    ),
   createEntry: (scanId: string) => post<EntryView>('/games/v1/entries', { scanId }),
   entry: (entryId: string) => api<EntryView>(`/games/v1/entries/${encodeURIComponent(entryId)}`),
   play: (entryId: string, player?: PlayerDetails) =>
     post<EntryView>(`/games/v1/entries/${encodeURIComponent(entryId)}/play`, player ? { player } : {}),
+  saveWinnerPhone: (entryId: string, phone: string) =>
+    post<EntryView>(`/games/v1/entries/${encodeURIComponent(entryId)}/phone`, { phone }),
   logos: () => api<{ items: Logo[] }>('/platform/v1/logos'),
 };
 

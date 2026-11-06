@@ -46,7 +46,7 @@ Rules:
 |---|---|
 | `/s/:scanId` | Entry point from a stall logo. Shows the scan result (polls up to 3 s while the webhook is processed) |
 | `/me` | Score, rank, stalls visited, countdown |
-| `/leaderboard` | Top N with player numbers |
+| `/leaderboard` | Top N with QuickLook names |
 | `/not-started`, `/ended` | Session states |
 
 ## 4. Venue screen app

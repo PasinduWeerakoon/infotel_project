@@ -10,7 +10,7 @@ import { ConnectionLost } from '../../components/ConnectionLost';
 import { PrizeImage } from '../../components/PrizeImage';
 import { QrCode } from '../../components/QrCode';
 import { formatSeconds, useCountdown } from '../../hooks/useCountdown';
-import { formatTime, formatWhen, sessionRange } from '../../lib/format';
+import { formatTime, formatWhen } from '../../lib/format';
 import { QR_MODE, qrTargetUrl } from '../../lib/qr';
 import { IdleSide } from './IdleSides';
 
@@ -38,8 +38,9 @@ export function StallFrame({
         </div>
         <div className="flex items-center gap-3 text-[2.2vh] font-bold">
           {session ? (
-            <span className="glass rounded-full px-5 py-2">
-              {session.name} · {sessionRange(session)}
+            <span className="glass flex items-center gap-2.5 rounded-full px-5 py-2">
+              <span className="size-[1.4vh] rounded-full bg-mint animate-twinkle" aria-hidden />
+              Open now · until {formatTime(session.endsAt)}
             </span>
           ) : null}
           {session ? <EndsIn endsAt={session.endsAt} /> : null}
@@ -56,6 +57,7 @@ function EndsIn({ endsAt }: { endsAt: string }) {
   return (
     <span className="glass flex items-center gap-2 rounded-full px-5 py-2 tabular-nums">
       <IconClockHour4 className="size-[2.6vh] text-sun" stroke={2} aria-hidden />
+      <span className="text-haze">Ends in</span>
       {formatSeconds(seconds)}
     </span>
   );
@@ -81,36 +83,41 @@ export function IdleView({ logos, game }: { logos: Logo[]; game: Game | null }) 
         <p className="mt-[1.5vh] text-[2.8vh] font-semibold text-haze">
           {QR_MODE
             ? 'Scan a QR code with your phone camera. One play per session.'
-            : 'Open QuickLook and scan a logo below. One play per session.'}
+            : 'Visit q.lk and scan the logo of your preferred game to get started!'}
         </p>
       </div>
-      <div className="flex items-center gap-[2.5vw]">
+      <div className="flex min-h-0 items-center gap-[2vw]">
         <IdleSide side="left" />
-        {gameLogos.map(({ target, logo }) => (
-          <div
-            key={target}
-            className={`rounded-[4vh] bg-gradient-to-br p-[0.6vh] ${CARD_GLOW[target]} ${target === game ? 'scale-105 shadow-[0_30px_80px_-20px_rgb(255_205_31/0.6)]' : 'opacity-90'}`}
-          >
-            {QR_MODE && logo ? (
-              <QrCard logo={logo} name={GAME_NAMES[target]} />
-            ) : (
-              <div className="flex w-[28vw] flex-col items-center gap-[2vh] rounded-[3.5vh] bg-night/85 p-[3vh]">
-                {logo?.imageUrl ? (
-                  <img
-                    src={logo.imageUrl}
-                    alt=""
-                    className="aspect-square w-full animate-float rounded-[2.5vh] bg-white object-contain p-[2vh]"
-                  />
-                ) : (
-                  <div className="grid aspect-square w-full place-items-center rounded-[2.5vh] bg-white/10 text-lilac">
-                    <IconPhoto className="size-[10vh]" stroke={1.2} aria-hidden />
-                  </div>
-                )}
-                <span className="font-display text-[4vh] font-bold">{GAME_NAMES[target]}</span>
-              </div>
-            )}
-          </div>
-        ))}
+        {/* A clear gap between the two logos, so QuickLook scans one at a time */}
+        <div className="flex items-center gap-[4vw]">
+          {gameLogos.map(({ target, logo }) => (
+            <div
+              key={target}
+              className={`rounded-[4vh] bg-gradient-to-br p-[0.6vh] ${CARD_GLOW[target]} ${target === game ? 'scale-105 shadow-[0_30px_80px_-20px_rgb(255_205_31/0.6)]' : 'opacity-90'}`}
+            >
+              {QR_MODE && logo ? (
+                <QrCard logo={logo} name={GAME_NAMES[target]} />
+              ) : (
+                <div className="flex w-[min(23vw,41vh)] flex-col items-center gap-[1.6vh] rounded-[3.5vh] bg-night/85 p-[2.5vh]">
+                  {logo?.imageUrl ? (
+                    <img
+                      src={logo.imageUrl}
+                      alt=""
+                      className="aspect-square w-full rounded-[2.5vh] bg-white object-contain p-[2vh]"
+                    />
+                  ) : (
+                    <div className="grid aspect-square w-full place-items-center rounded-[2.5vh] bg-white/10 text-lilac">
+                      <IconPhoto className="size-[10vh]" stroke={1.2} aria-hidden />
+                    </div>
+                  )}
+                  <span className="font-display text-[3.8vh] leading-none font-bold">
+                    {GAME_NAMES[target]}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
         <IdleSide side="right" />
       </div>
     </div>
@@ -183,7 +190,9 @@ export function ResultView({
           <p className="max-w-[80vw] truncate font-display text-[6vh] leading-none font-bold">
             {player.name}
           </p>
-          <p className="text-[3vh] font-bold tracking-[0.08em] text-haze tabular-nums">{player.phone}</p>
+          {player.phone ? (
+            <p className="text-[3vh] font-bold tracking-[0.08em] text-haze tabular-nums">{player.phone}</p>
+          ) : null}
         </div>
       ) : null}
       <div className="flex items-center gap-[4vw] rounded-[4vh] bg-white px-[4vw] py-[3vh] text-night shadow-[0_40px_100px_-30px_rgb(0_0_0/0.7)] animate-pop">

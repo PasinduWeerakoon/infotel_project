@@ -14,12 +14,13 @@ import {
   getReference,
   hasMainPrizeToday,
   savePlay,
+  saveWinnerPhone,
 } from '../data/entries-repo.js';
 import { waitForScan } from '../data/platform-scans.js';
-import { lockKeyFor, screenForGame } from '../data/screens-repo.js';
+import { PLAY_LOCK } from '../data/screens-repo.js';
 import { getSession, listAllocations, upcomingSessions } from '../data/sessions-repo.js';
 import { type DrawCandidate, drawPrize } from '../domain/draw.js';
-import { maskPhone } from '../domain/player.js';
+import { maskPhone, normalizePhone } from '../domain/player.js';
 import { newReference } from '../domain/reference.js';
 import { currentSession, nextSession, releaseWindow } from '../domain/sessions.js';
 import {
@@ -101,6 +102,8 @@ export async function entryView(entry: Entry) {
       reference: entry.reference,
       playedAt: entry.playedAt,
       collectedAt: reference?.collectedAt ?? null,
+      // A QuickLook winner has not given a phone yet: the result page asks before showing the reference
+      phoneNeeded: Boolean(prize && entry.player && !entry.player.phone && !reference?.collectedAt),
       animation: { target, durationMs: ANIMATION_MS[entry.game] },
     };
   }
@@ -163,7 +166,6 @@ export async function startEntry(userId: string, scanId: string) {
     replaceExpired = guard.entryId;
   }
 
-  const screen = await screenForGame(game);
   const now = nowIso();
   const entry: Entry = {
     entryId: `ent_${ulid()}`,
@@ -171,7 +173,7 @@ export async function startEntry(userId: string, scanId: string) {
     sessionId: session.sessionId,
     game,
     scanId,
-    lockKey: lockKeyFor(screen, game),
+    lockKey: PLAY_LOCK,
     status: 'ready',
     createdAt: now,
     expiresAt: addSeconds(now, settings.lockTimeoutSeconds),
@@ -243,6 +245,19 @@ export async function readEntry(userId: string, entryId: string) {
   if (!entry || entry.userId !== userId)
     throw new HttpError(404, 'ENTRY_NOT_FOUND', 'Please scan the logo again');
   return entryView(entry);
+}
+
+/** POST /games/v1/entries/:entryId/phone: a QuickLook winner gives the phone for the prize desk. */
+export async function addWinnerPhone(userId: string, entryId: string, input: string) {
+  const entry = await getEntry(entryId);
+  if (!entry || entry.userId !== userId)
+    throw new HttpError(404, 'ENTRY_NOT_FOUND', 'Please scan the logo again');
+  const phone = normalizePhone(input);
+  if (!phone) throw new HttpError(422, 'PHONE_INVALID', 'Please check your phone number');
+  if (entry.reference && entry.player && !entry.player.phone) {
+    await saveWinnerPhone(entryId, entry.reference, phone); // false: already given or collected
+  }
+  return readEntry(userId, entryId);
 }
 
 const MAX_DRAW_ATTEMPTS = 3;

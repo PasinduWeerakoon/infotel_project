@@ -2,7 +2,7 @@
  * Visitor and screen API of Project B.
  *
  *   GET /hunt/v1/status
- *   GET /hunt/v1/leaderboard?sessionId=&top=10   public (leaderboard screen and phones)
+ *   GET /hunt/v1/leaderboard?sessionId=&top=10&page=   public (leaderboard screen and phones; page: 10 per page)
  *
  * Visitors do not sign in to the hunt: QuickLook sends their scans to us (decision D-20).
  */
@@ -21,8 +21,9 @@ export const visitorRoutes: Route[] = [
     path: '/hunt/v1/leaderboard',
     handler: async (req) => {
       const top = z.coerce.number().int().min(1).max(50).default(10).parse(req.query.top);
+      const page = z.coerce.number().int().min(1).max(10_000).optional().parse(req.query.page);
       // CloudFront and browsers may reuse it for 3 seconds
-      return json(await leaderboard(req.query.sessionId, top), 200, {
+      return json(await leaderboard(req.query.sessionId, top, page), 200, {
         headers: { 'cache-control': 'public, max-age=3' },
       });
     },

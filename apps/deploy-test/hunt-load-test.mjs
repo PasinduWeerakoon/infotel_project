@@ -5,7 +5,7 @@
 //
 // Afterwards every user's logo count and scan total must match exactly what was sent, the public
 // top 10 must match the admin standings, and the winners must be the top players. Then it deletes
-// everything it made: its session, participants, scans, event IDs and test logos.
+// everything it made: its session, participants, scans and event IDs.
 //
 //   STATE_DIR=.state-1bt AWS_PROFILE=1bt-training TARGET_RPS=150 HOLD_S=180 node hunt-load-test.mjs
 //
@@ -88,9 +88,8 @@ const adm = (name, method, path, body) => call(name, method, A(`/admin/v1/hunt${
 const running = (await call('setup', 'GET', A('/hunt/v1/status'))).data?.session;
 if (running && running.state === 'open') throw new Error(`A hunt session is open (${running.name}). Run the load test when none is.`);
 
-// Test logos, as if loaded from QuickLook (removed at the end)
+// The hunt's logos as QuickLook would send them (every logo counts, there is no logo list)
 const logoIds = Array.from({ length: LOGOS }, (_, i) => `loadtest-logo-${String(i + 1).padStart(3, '0')}`);
-const unknownLogo = 'loadtest-not-an-event-logo';
 async function batchWrite(requests) {
   for (let i = 0; i < requests.length; i += 25) {
     let chunk = requests.slice(i, i + 25);
@@ -102,7 +101,6 @@ async function batchWrite(requests) {
     if (chunk.length) throw new Error('DynamoDB did not take every write');
   }
 }
-await batchWrite(logoIds.map((logoId, i) => ({ PutRequest: { Item: { PK: 'LOGOS', SK: `LOGO#${logoId}`, logoId, productName: `Load test stall ${i + 1}`, companyName: 'Load test', logoCode: null, logoUrl: null } } })));
 
 const colombo = (d) => {
   const v = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map((p) => [p.type, p.value]));
@@ -116,8 +114,8 @@ if (created.status !== 201) throw new Error(`Could not create the session: ${cre
 const sessionId = created.data.sessionId;
 const opened = await adm('setup', 'POST', `/sessions/${sessionId}/start`);
 if (opened.status !== 200) throw new Error(`Could not start the session: ${opened.status} ${opened.code}`);
-console.log(`Session ${sessionId} open, ${LOGOS} test logos. Waiting 65 s for every scan handler to see the new logos...`);
-await sleep(65_000);
+console.log(`Session ${sessionId} open. Waiting 6 s for the scan handlers' session cache...`);
+await sleep(6_000);
 
 // ------------------------------------------------------------------ what QuickLook and visitors do
 function encrypt(payload, keyHex = HUNT_SCAN_KEY) {
@@ -136,8 +134,7 @@ let scansSent = 0;
 async function sendScan(user, logoId, eventId = `loadtest-evt-${randomUUID()}`) {
   const payload = { logo_id: logoId, user_id: user.id, user_name: user.name, scanned_at: new Date().toISOString(), event_id: eventId };
   const r = await call('scan', 'POST', SCAN_URL, { data: encrypt(payload) });
-  // Only event logos count towards a participant (a non-event logo is kept as a scan record only)
-  if (r.status === 200 && r.data?.result !== 'already-received' && logoIds.includes(logoId)) {
+  if (r.status === 200 && r.data?.result !== 'already-received') {
     const e = expected.get(user.id);
     e.scans++;
     e.logos.add(logoId);
@@ -161,8 +158,7 @@ const OPS = [
   }],
   // A resent event ID from earlier
   [3, () => (sentEvents.length ? sendScan(randomUser(), randomLogo(), sentEvents[Math.floor(Math.random() * sentEvents.length)]) : Promise.resolve())],
-  // A logo that is not an event logo, and a message made with the wrong key
-  [1, () => sendScan(randomUser(), unknownLogo)],
+  // A message made with the wrong key
   [1, () => call('scan wrong key', 'POST', SCAN_URL, { data: encrypt({ logo_id: randomLogo(), user_id: 'x' }, randomBytes(32).toString('hex')) })],
   // Phones and the big screen poll the leaderboard through CloudFront, plus the status
   [26, () => call('leaderboard', 'GET', `${urls.HUNT_URL}/hunt/v1/leaderboard?top=10`)],
@@ -290,11 +286,10 @@ async function keysOf(pk, onlyLoadTest = false) {
 const doomed = [
   ...(await keysOf(`SESSION#${sessionId}`)),
   ...(await keysOf(`SCANS#${sessionId}`)),
-  ...(await keysOf('LOGOS')).filter((k) => k.SK.startsWith('LOGO#loadtest-')),
   ...[...new Set(sentEvents)].map((id) => ({ PK: `EVENT#${id}`, SK: 'META' })),
 ];
 // The late scan after the end is kept under the day, outside any session: only the load test's own
 doomed.push(...(await keysOf(`SCANS#NONE#${colombo(new Date()).date}`, true)));
 await batchWrite(doomed.map((Key) => ({ DeleteRequest: { Key } })));
-console.log(`Deleted ${doomed.length} items (session, participants, scans, event IDs, test logos)`);
+console.log(`Deleted ${doomed.length} items (session, participants, scans, event IDs)`);
 process.exitCode = checks.every((c) => c.ok) && failures.length === 0 ? 0 : 1;

@@ -12,7 +12,7 @@ LKDR Admin Dashboard
     Sessions and prizes          sessions per day, prize allocation per session and game, auto-split
     Prize catalogue              prizes, stock, main prize flag
     Prize desk                   reference lookup, winner name (QuickLook), mark collected
-    Stall screens                screens, keys, release lock
+    Logos                        game and display logos (TV screens are fixed, release on Overview)
     Reports                      plays export, summary per session
   Treasure Hunt (Project B)
     Live                         current session, participants, scans per minute, top 10
@@ -29,18 +29,18 @@ LKDR Admin Dashboard
 
 ## 2. Roles and access
 
-| Tab | Super admin | Games admin | Hunt admin | Prize desk | Viewer |
-|---|---|---|---|---|---|
-| Overview | Yes | Yes | Yes | Yes | Yes |
-| Games: Live control | Yes | Yes | No | View | View |
-| Games: Sessions and prizes, Prize catalogue, Stall screens | Yes | Yes | No | No | View |
-| Games: Prize desk | Yes | Yes | No | Yes | No |
-| Games: Reports | Yes | Yes | No | No | Yes |
-| Hunt: Live | Yes | No | Yes | View | View |
-| Hunt: Sessions and prizes, Stalls, Participants | Yes | No | Yes | No | View |
-| Hunt: Winners | Yes | No | Yes | Collect only | View |
-| Hunt: Reports | Yes | No | Yes | No | Yes |
-| Administration | Yes | No | No | No | No |
+| Tab | Super admin | Event admin | Games admin | Hunt admin | Prize desk | Viewer |
+|---|---|---|---|---|---|---|
+| Overview | Yes | Yes | Yes | Yes | Yes | Yes |
+| Games: Live control | Yes | Yes | Yes | No | View | View |
+| Games: Sessions and prizes, Prize catalogue, Logos | Yes | Yes | Yes | No | No | View |
+| Games: Prize desk | Yes | Yes | Yes | No | Yes | No |
+| Games: Reports | Yes | Yes | Yes | No | No | Yes |
+| Hunt: Live | Yes | Yes | No | Yes | View | View |
+| Hunt: Sessions and prizes, Stalls, Participants | Yes | Yes | No | Yes | No | View |
+| Hunt: Winners | Yes | Yes | No | Yes | Collect only | View |
+| Hunt: Reports | Yes | Yes | No | Yes | No | Yes |
+| Administration | Yes | No | No | No | No | No |
 
 ## 3. Key screens
 

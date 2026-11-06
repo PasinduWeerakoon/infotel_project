@@ -9,11 +9,12 @@ import {
   QueryCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { ulid } from 'ulid';
 import { env } from '../config.js';
 import type { Allocation, Game, Session } from '../domain/types.js';
 import { addSeconds, colomboDate, nowIso } from '../lib/time.js';
-import { db, isConditionFailure, retryOnConflict } from './db.js';
+import { cancellationReasons, db, isConditionFailure, retryOnConflict } from './db.js';
 import { clean, keys } from './keys.js';
 
 export async function listSessionsByDate(date: string): Promise<Session[]> {
@@ -121,6 +122,58 @@ export async function listAllocations(sessionId: string, game?: Game): Promise<A
     }),
   );
   return (result.Items ?? []).map((item) => clean<Allocation>(item) as Allocation);
+}
+
+/** One allocation cell to save, with the given count it was checked against */
+export interface AllocationRow {
+  sessionId: string;
+  game: Game;
+  prizeId: string;
+  allocated: number;
+  given: number;
+}
+
+/**
+ * Saves several allocation cells together: all of them or none (up to 100, a DynamoDB limit).
+ * Each cell is saved only if its given count is still the one checked. Returns 'changed' when a
+ * play gave one of these prizes in the meantime, so the caller checks again with the new counts.
+ */
+export async function saveAllocations(rows: AllocationRow[]): Promise<'saved' | 'changed'> {
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100);
+    try {
+      await retryOnConflict(() =>
+        db.send(
+          new TransactWriteCommand({
+            TransactItems: chunk.map((row) => ({
+              Update: {
+                TableName: env.TABLE_NAME,
+                Key: keys.allocation(row.sessionId, row.game, row.prizeId),
+                UpdateExpression:
+                  'SET sessionId = :s, game = :g, prizeId = :p, allocated = :a, remaining = :r, given = if_not_exists(given, :zero), GSI1PK = :g1pk, GSI1SK = :g1sk',
+                ConditionExpression: 'attribute_not_exists(given) OR given = :given',
+                ExpressionAttributeValues: {
+                  ':s': row.sessionId,
+                  ':g': row.game,
+                  ':p': row.prizeId,
+                  ':a': row.allocated,
+                  ':r': row.allocated - row.given,
+                  ':zero': 0,
+                  ':given': row.given,
+                  ':g1pk': 'ALLOC',
+                  ':g1sk': `${row.prizeId}#${row.sessionId}#${row.game}`,
+                },
+              },
+            })),
+          }),
+        ),
+      );
+    } catch (error) {
+      if (cancellationReasons(error).includes('ConditionalCheckFailed')) return 'changed';
+      throw error;
+    }
+  }
+  return 'saved';
 }
 
 /**

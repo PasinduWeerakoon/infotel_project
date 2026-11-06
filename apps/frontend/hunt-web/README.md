@@ -7,6 +7,6 @@ Points are never added by this app. It only shows what the server scored from th
 |---|---|
 | `/s/:scanId` | Scan result. Shows "Counting your scan" while the server is still scoring |
 | `/me` | Points, rank, stalls found, time left. After the end: final standing, then the winner card |
-| `/leaderboard` | Top 10 by player number |
+| `/leaderboard` | Top 10 by QuickLook name |
 
 `npm run dev` (port 5174), `npm run build`, `npm run lint`. Hosting: `../web-infra`.

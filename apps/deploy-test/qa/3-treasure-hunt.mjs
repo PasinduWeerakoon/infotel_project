@@ -33,8 +33,6 @@ const su = await adminAs();
 const session = (await su.call('GET', `${HUNT}/hunt/v1/status`)).data.session;
 check('H0', 'a hunt session is open', session?.state === 'open', JSON.stringify(session));
 const S = `${H}/sessions/${session.sessionId}`;
-const logos = (await su.call('GET', `${H}/logos`)).data.items;
-check('H0b', 'the 8 event logos are loaded once for every session', logos.length === 8, String(logos.length));
 
 const a = `qa-${randomUUID()}`;
 const b = `qa-${randomUUID()}`;
@@ -43,9 +41,9 @@ let r = await scan(a, 'Amal Perera', 1);
 check('H1', 'QuickLook sends a scan, it counts', r.status === 200 && r.data.result === 'counted', JSON.stringify(r));
 r = await scan(a, 'Amal Perera', 1);
 check('H2', 'the same logo again is stored, but does not count', r.data?.result === 'repeat', JSON.stringify(r));
+// QuickLook sends only the hunt's allocated logos, so any logo it sends counts (no logo list)
 r = await scan(a, 'Amal Perera', 9);
-check('H3', 'a logo that is not an event logo is stored, but does not count', r.data?.result === 'unknown-logo', JSON.stringify(r));
-await scan(a, 'Amal Perera', 2);
+check('H3', 'any logo QuickLook sends counts, there is no logo list to load', r.data?.result === 'counted', JSON.stringify(r));
 // Bimali scans 3 logos at the same moment: all three count, none twice
 await Promise.all([3, 4, 5, 5, 3].map((n) => scan(b, 'Bimali Silva', n)));
 await scan(c, 'Chathura Dias', 6);
@@ -64,11 +62,27 @@ check('H8', 'admin sees the QuickLook user ID and the user name', pb?.userId ===
 
 const lb = (await (await fetch(`${HUNT}/hunt/v1/leaderboard`)).json());
 check('H9', 'leaderboard in rank order with the logo count', lb.top?.[0]?.stalls === 3 && lb.top.map((x) => x.rank).join() === '1,2,3', JSON.stringify(lb.top));
-check('H10', 'public leaderboard shows player numbers only (no names or user IDs)', !/qa-|Amal|Bimali|userId|fullName/.test(JSON.stringify(lb)), JSON.stringify(lb).slice(0, 300));
+check('H10', 'public leaderboard shows the QuickLook names, never user IDs', lb.top?.[0]?.name === 'Bimali Silva' && !/qa-|userId|fullName/.test(JSON.stringify(lb)), JSON.stringify(lb).slice(0, 300));
 const live = (await su.call('GET', `${S}/live`)).data;
-check('H11', 'live view shows players, scans received and the last scan time', live.players === 3 && live.scans >= 11 && Boolean(live.lastScanAt), JSON.stringify({ p: live.players, s: live.scans, t: live.lastScanAt }));
+check('H11', 'live view shows players, scans received and the last scan time', live.players === 3 && live.scans >= 10 && Boolean(live.lastScanAt), JSON.stringify({ p: live.players, s: live.scans, t: live.lastScanAt }));
 const scans = (await su.call('GET', `${S}/scans?userId=${a}`)).data.items;
-check('H12', 'every scan received is kept with its result and receive time', scans.length === 4 && scans.every((s) => s.receivedAt) && scans.some((s) => s.result === 'repeat'), JSON.stringify(scans.map((s) => s.result)));
+check('H12', 'every scan received is kept with its result and receive time', scans.length === 3 && scans.every((s) => s.receivedAt) && scans.some((s) => s.result === 'repeat'), JSON.stringify(scans.map((s) => s.result)));
+
+// The phone leaderboard lists everyone, 10 per page: 22 more players make 25, so 3 pages
+await Promise.all(Array.from({ length: 22 }, (_, i) => scan(`qa-${randomUUID()}`, `QA Page Player ${i + 1}`, 2)));
+const page = async (n) => (await fetch(`${HUNT}/hunt/v1/leaderboard?page=${n}`)).json();
+const [p1, p2, p3, p4] = await Promise.all([page(1), page(2), page(3), page(4)]);
+check('H12a', 'page 1 has places 1 to 10, the same as the big screen top 10', p1.top.map((x) => x.rank).join() === '1,2,3,4,5,6,7,8,9,10' && p1.top[0].name === 'Bimali Silva' && p1.page === 1 && p1.pages === 3, `${p1.page}/${p1.pages} ${p1.top.map((x) => x.rank)}`);
+check('H12b', 'page 2 has places 11 to 20', p2.top.map((x) => x.rank).join() === '11,12,13,14,15,16,17,18,19,20' && p2.page === 2, p2.top.map((x) => x.rank).join());
+check('H12c', 'page 3 has the last 5 players (21 to 25)', p3.top.map((x) => x.rank).join() === '21,22,23,24,25' && p3.pages === 3, p3.top.map((x) => x.rank).join());
+const listed = [...p1.top, ...p2.top, ...p3.top].map((x) => x.playerNumber);
+check('H12d', 'every player is on exactly one page, never two', new Set(listed).size === 25 && listed.length === 25, `${new Set(listed).size} of ${listed.length}`);
+check('H12e', 'a page past the end is empty, the pages still say 3', p4.top.length === 0 && p4.pages === 3, `${p4.top.length} ${p4.pages}`);
+await wait(3100); // the top 10 read for H9 is cached for 3 seconds
+const tv = await (await fetch(`${HUNT}/hunt/v1/leaderboard?top=10`)).json();
+check('H12f', 'the big screen still gets the top 10 only, without pages', tv.top.length === 10 && tv.pages === undefined, `${tv.top.length} ${tv.pages}`);
+const bad404 = await fetch(`${HUNT}/hunt/v1/leaderboard?page=0`);
+check('H12g', 'page 0 is refused', bad404.status === 400, String(bad404.status));
 
 // Refused messages
 r = await send(encrypt({ logo_id: logo(1), user_id: a, user_name: 'x' }, 'ab'.repeat(32)));

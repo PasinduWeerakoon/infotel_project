@@ -5,10 +5,11 @@
  */
 import { IconSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Drawer, Flex, Input, Table, Tag, Typography } from 'antd';
+import { Button, Card, Drawer, Input, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { type Participant, type ScanRecord, huntApi } from '../../api/hunt';
 import { formatTime } from '../../lib/format';
+import { PlayerCell, RankBadge } from './WinnersCard';
 
 const RESULT_LABELS: Record<ScanRecord['result'], { label: string; color: string }> = {
   counted: { label: 'Counted', color: 'green' },
@@ -52,30 +53,19 @@ export function ParticipantsCard({ sessionId, live }: { sessionId: string; live:
         loading={participants.isLoading}
         dataSource={shown}
         pagination={{ pageSize: 25, hideOnSinglePage: true }}
-        scroll={{ x: 900 }}
+        scroll={{ x: 820 }}
         columns={[
           {
             title: 'Rank',
             dataIndex: 'rank',
-            width: 64,
-            render: (rank: number | null) => rank ?? <Tag color="red">Out</Tag>,
+            width: 72,
+            render: (rank: number | null) => (rank ? <RankBadge rank={rank} /> : <Tag color="red">Out</Tag>),
           },
           {
             title: 'Player',
+            width: 260,
             render: (_, p) => (
-              <Flex vertical>
-                <Typography.Text strong>{p.fullName || 'No name'}</Typography.Text>
-                <Typography.Text type="secondary">#{p.playerNumber}</Typography.Text>
-              </Flex>
-            ),
-          },
-          {
-            title: 'QuickLook user ID',
-            dataIndex: 'userId',
-            render: (v: string) => (
-              <Typography.Text code copyable style={{ fontSize: 12 }}>
-                {v}
-              </Typography.Text>
+              <PlayerCell name={p.fullName} playerNumber={p.playerNumber} userId={p.userId} />
             ),
           },
           { title: 'Logos', dataIndex: 'stalls', align: 'right' },
@@ -114,7 +104,11 @@ function ScansDrawer({
   });
   return (
     <Drawer
-      title={participant ? `Scans of ${participant.fullName || participant.userId}` : ''}
+      title={
+        participant
+          ? `Scans of ${participant.fullName || participant.userId} (Player #${participant.playerNumber})`
+          : ''
+      }
       open={Boolean(participant)}
       onClose={onClose}
       width={560}

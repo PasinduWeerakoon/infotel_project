@@ -138,6 +138,7 @@ async function session(req: ApiRequest) {
   return json({
     firstName: visitor.firstName,
     nameLocked: visitor.nameLocked,
+    phone: visitor.phone,
     expiresAt: new Date(visitor.expiresAt * 1000).toISOString(),
   });
 }

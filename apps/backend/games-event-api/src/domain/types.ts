@@ -67,6 +67,7 @@ export interface Entry {
 
 export interface PlayerDetails {
   name: string;
+  /** Empty for a QuickLook player until they win: they type it on the result page */
   phone: string;
 }
 

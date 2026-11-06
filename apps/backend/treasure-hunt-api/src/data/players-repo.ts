@@ -3,7 +3,7 @@
  */
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { env } from '../config.js';
-import { leaderboardKey } from '../domain/rules.js';
+import { countReachedAt, leaderboardKey } from '../domain/rules.js';
 import type { Participant, SessionStats, Winner } from '../domain/types.js';
 import { db, isConditionFailure } from './db.js';
 import { clean, keys } from './keys.js';
@@ -77,11 +77,10 @@ async function addLogo(
         TableName: T(),
         Key: keys.participant(scan.sessionId, scan.userId),
         UpdateExpression:
-          'SET fullName = :name, reachedAt = :at, logos = list_append(logos, :logo) ADD stalls :one, points :points, totalScans :one, logoIds :ids',
+          'SET fullName = :name, logos = list_append(logos, :logo) ADD stalls :one, points :points, totalScans :one, logoIds :ids',
         ConditionExpression: 'attribute_exists(PK) AND NOT contains(logoIds, :id)',
         ExpressionAttributeValues: {
           ':name': scan.userName,
-          ':at': scan.at,
           ':logo': [{ logoId: scan.logoId, firstScannedAt: scan.at }],
           ':one': 1,
           ':points': scan.pointsPerStall,
@@ -145,18 +144,20 @@ async function assignPlayerNumber(sessionId: string, userId: string): Promise<vo
     .catch(ignoreConditionFailure);
 }
 
-/** The leaderboard key follows the count. Only the write for the latest count lands. */
+/** The reach time and leaderboard key follow the count. Only the write for the latest count lands. */
 async function syncLeaderboardKey(p: Participant): Promise<void> {
+  const reachedAt = countReachedAt(p);
   await db
     .send(
       new UpdateCommand({
         TableName: T(),
         Key: keys.participant(p.sessionId, p.userId),
-        UpdateExpression: 'SET GSI1PK = :pk, GSI1SK = :sk',
+        UpdateExpression: 'SET reachedAt = :at, GSI1PK = :pk, GSI1SK = :sk',
         ConditionExpression: 'stalls = :stalls',
         ExpressionAttributeValues: {
+          ':at': reachedAt,
           ':pk': `LB#${p.sessionId}`,
-          ':sk': leaderboardKey(p.stalls, p.reachedAt, p.userId),
+          ':sk': leaderboardKey(p.stalls, reachedAt, p.userId),
           ':stalls': p.stalls,
         },
       }),
@@ -225,6 +226,27 @@ export async function topParticipants(sessionId: string, limit: number): Promise
     }),
   );
   return (result.Items ?? []).map((item) => clean<Participant>(item) as Participant);
+}
+
+/** Everyone on the leaderboard in rank order, disqualified players left out (for the paged list). */
+export async function rankedParticipants(sessionId: string): Promise<Participant[]> {
+  const items: Participant[] = [];
+  let startKey: Record<string, unknown> | undefined;
+  do {
+    const page = await db.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        FilterExpression: 'disqualified <> :true',
+        ExpressionAttributeValues: { ':pk': `LB#${sessionId}`, ':true': true },
+        ExclusiveStartKey: startKey,
+      }),
+    );
+    items.push(...(page.Items ?? []).map((item) => clean<Participant>(item) as Participant));
+    startKey = page.LastEvaluatedKey;
+  } while (startKey);
+  return items;
 }
 
 /** Rank = players ahead on the leaderboard index + 1 (disqualified players are not counted). */

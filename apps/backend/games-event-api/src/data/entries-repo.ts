@@ -238,6 +238,46 @@ export async function savePlay(input: {
   }
 }
 
+/**
+ * Adds the phone a QuickLook winner typed after the win, to the play and to its prize reference.
+ * Only once, and only while the prize is not collected. Returns false otherwise.
+ */
+export async function saveWinnerPhone(entryId: string, reference: string, phone: string): Promise<boolean> {
+  try {
+    await retryOnConflict(() =>
+      db.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Update: {
+                TableName: T(),
+                Key: keys.entry(entryId),
+                UpdateExpression: 'SET player.phone = :phone',
+                ConditionExpression: '#reference = :ref AND player.phone = :empty',
+                ExpressionAttributeNames: { '#reference': 'reference' },
+                ExpressionAttributeValues: { ':phone': phone, ':ref': reference, ':empty': '' },
+              },
+            },
+            {
+              Update: {
+                TableName: T(),
+                Key: keys.reference(reference),
+                UpdateExpression: 'SET player.phone = :phone',
+                ConditionExpression: 'entryId = :entryId AND collectedAt = :null',
+                ExpressionAttributeValues: { ':phone': phone, ':entryId': entryId, ':null': null },
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    return true;
+  } catch (error) {
+    if (isTransactionConflict(error) || !isConditionFailure(error)) throw error;
+    return false;
+  }
+}
+
 /** Marks an unplayed entry expired and frees the visitor's play for the session. */
 export async function expireEntry(entry: Entry): Promise<void> {
   try {
