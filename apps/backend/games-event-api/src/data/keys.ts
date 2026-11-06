@@ -15,8 +15,9 @@
  * | Screen conn.  | SCREENCONN#{screenId}       | CONN#{connectionId}      |
  * | Screen lock   | LOCK                        | LOCK#{lockKey}           |
  * | Main prize    | USERDAY#{userId}#{date}     | MAIN                     |
- * | Name guard    | SESSION#{sessionId}         | NAME#{name}              (one play per name per session) |
- * | Phone guard   | SESSION#{sessionId}         | PHONE#{phone}            (one play per phone per session) |
+ * | Day account   | DAY#{date}                  | ACCOUNT#{userId}         (one play per account per day) |
+ * | Day name      | DAY#{date}                  | NAME#{name}              (one play per name per day) |
+ * | Day phone     | DAY#{date}                  | PHONE#{phone}            (one play per phone per day) |
  * | Settings      | SETTINGS                    | GLOBAL                   |
  * | Alloc. editor | ALLOCLOCK                   | META                     |
  */
@@ -41,8 +42,9 @@ export const keys = {
   }),
   lock: (lockKey: string) => ({ PK: 'LOCK', SK: `LOCK#${lockKey}` }),
   mainPrizeToday: (userId: string, date: string) => ({ PK: `USERDAY#${userId}#${date}`, SK: 'MAIN' }),
-  sessionName: (sessionId: string, name: string) => ({ PK: `SESSION#${sessionId}`, SK: `NAME#${name}` }),
-  sessionPhone: (sessionId: string, phone: string) => ({ PK: `SESSION#${sessionId}`, SK: `PHONE#${phone}` }),
+  dayAccount: (date: string, userId: string) => ({ PK: `DAY#${date}`, SK: `ACCOUNT#${userId}` }),
+  dayName: (date: string, name: string) => ({ PK: `DAY#${date}`, SK: `NAME#${name}` }),
+  dayPhone: (date: string, phone: string) => ({ PK: `DAY#${date}`, SK: `PHONE#${phone}` }),
   settings: () => ({ PK: 'SETTINGS', SK: 'GLOBAL' }),
   /** Held while one admin save of allocations runs, so saves never interleave */
   allocationLock: () => ({ PK: 'ALLOCLOCK', SK: 'META' }),

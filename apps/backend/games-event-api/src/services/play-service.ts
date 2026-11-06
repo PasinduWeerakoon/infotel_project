@@ -5,7 +5,7 @@
 import { ulid } from 'ulid';
 import { imageUrl } from '../config.js';
 import { getSettings, listPrizes } from '../data/catalog-repo.js';
-import { claimWithPhone, nameGuard, nameHasPlayed, phoneGuard, voidPrize } from '../data/claims-repo.js';
+import { claimWithPhone, dayGuards, playedToday, voidPrize } from '../data/claims-repo.js';
 import {
   createEntry,
   expireEntry,
@@ -156,12 +156,13 @@ export async function startEntry(userId: string, scanId: string, name = '') {
     throw mainPrizeAlreadyWon(sessions, game);
   }
 
-  // One play per session across both games. An entry that expired unplayed can be replaced.
+  // One live entry per account in a session. An entry that expired unplayed can be replaced.
   const guard = await getPlayerGuard(session.sessionId, userId);
-  // One play per name per session: a second QuickLook account with the same name gets the same
-  // answer as a second play. The play transaction checks it again; this only answers early.
-  if (!guard && (await nameHasPlayed(session.sessionId, normalizeName(name)))) {
-    throw alreadyPlayed(undefined, sessions, game);
+  // One play per day, either game, any session: this account or this name already played today.
+  // The play transaction checks it again; this answers early, before the screen is taken.
+  if (!guard) {
+    const earlier = await playedToday(session.date, userId, normalizeName(name));
+    if (earlier) throw alreadyPlayed(await getEntry(earlier), sessions, game, userId);
   }
   let replaceExpired: string | undefined;
   if (guard) {
@@ -170,7 +171,7 @@ export async function startEntry(userId: string, scanId: string, name = '') {
     // Scanned again before playing: continue with the same entry
     if (previous && isLive) return { created: false, view: await entryView(previous) };
     const expiredUnplayed = previous && previous.status !== 'played' && !isLive;
-    if (!expiredUnplayed) throw alreadyPlayed(previous, sessions, game);
+    if (!expiredUnplayed) throw alreadyPlayed(previous, sessions, game, userId);
     replaceExpired = guard.entryId;
   }
 
@@ -195,7 +196,7 @@ export async function startEntry(userId: string, scanId: string, name = '') {
     const latest = await waitForScan(scanId, 0);
     return existingEntry(latest?.usedBy ?? '', userId);
   }
-  if (failure === 'ALREADY_PLAYED') throw alreadyPlayed(undefined, sessions, game);
+  if (failure === 'ALREADY_PLAYED') throw alreadyPlayed(undefined, sessions, game, userId);
   if (failure === 'SCREEN_BUSY') {
     throw new HttpError(
       409,
@@ -236,12 +237,22 @@ async function existingEntry(entryId: string, userId: string) {
   return { created: false, view: await entryView(entry) };
 }
 
-function alreadyPlayed(previous: Entry | undefined, sessions: Session[], requestedGame: Game) {
-  return new HttpError(409, 'ALREADY_PLAYED_THIS_SESSION', 'You have already played in this session', {
+/**
+ * One play per visitor per day. The code keeps its old name so phones that still have the older
+ * page open show the right screen. Only the visitor's own earlier play can be opened from it.
+ */
+function alreadyPlayed(
+  previous: Entry | undefined,
+  sessions: Session[],
+  requestedGame: Game,
+  userId: string,
+) {
+  const own = previous?.userId === userId;
+  return new HttpError(409, 'ALREADY_PLAYED_THIS_SESSION', 'You have already played today', {
     requestedGame,
     playedGame: previous?.game ?? null,
     playedAt: previous?.playedAt ?? null,
-    entryId: previous?.status === 'played' ? previous.entryId : null,
+    entryId: own && previous?.status === 'played' ? previous.entryId : null,
     nextSession: publicSession(nextSession(sessions)),
   });
 }
@@ -268,7 +279,9 @@ export async function addWinnerPhone(userId: string, entryId: string, input: str
   if (!phone) throw new HttpError(422, 'PHONE_INVALID', 'Please check your phone number');
   if (entry.reference && entry.player && !entry.player.phone && !entry.voided) {
     // 'not-open': already given, collected or taken back, so nothing changes
-    if ((await claimWithPhone(entry, phone)) === 'duplicate') {
+    const date =
+      (await getSession(entry.sessionId))?.date ?? colomboDate(new Date(entry.playedAt ?? nowIso()));
+    if ((await claimWithPhone(entry, phone, date)) === 'duplicate') {
       await voidPrize(entry, { reason: 'duplicate', by: 'system', at: nowIso(), phone });
       logger.info('Duplicate phone, prize taken back', { entryId, sessionId: entry.sessionId });
     }
@@ -304,11 +317,15 @@ export async function playEntry(userId: string, entryId: string, player: PlayerD
   const today = colomboDate();
   const excludeMain = settings.repeatWinnerRule && (await hasMainPrizeToday(userId, today));
   const prizeById = new Map(prizes.map((p) => [p.prizeId, p]));
-  // A guest's phone is known now; a QuickLook player's phone is checked when given after the win
-  const guards = [
-    ...nameGuard(entry.sessionId, normalizeName(player.name), entryId),
-    ...phoneGuard(entry.sessionId, player.phone, entryId),
-  ];
+  // One play per day by account, name and (a guest's) phone. A QuickLook player's phone is
+  // checked when given after the win.
+  const guards = dayGuards({
+    date: session.date,
+    userId,
+    name: normalizeName(player.name),
+    phone: player.phone,
+    entryId,
+  });
 
   for (let attempt = 1; attempt <= MAX_DRAW_ATTEMPTS; attempt++) {
     const allocations = await listAllocations(entry.sessionId, entry.game);
@@ -342,10 +359,11 @@ export async function playEntry(userId: string, entryId: string, player: PlayerD
       guards,
     });
     if (failure === 'GUARD') {
-      // This name (or phone) already played this session: no prize is drawn and the screen is freed
+      // This account, name or phone already played today: no prize is drawn and the screen is freed
       await expireEntry(entry);
       await notifyScreens(entry.game, { type: 'entry.ended', entryId });
-      throw alreadyPlayed(undefined, sessions, entry.game);
+      const earlier = await playedToday(session.date, userId, normalizeName(player.name));
+      throw alreadyPlayed(earlier ? await getEntry(earlier) : undefined, sessions, entry.game, userId);
     }
     if (failure === 'PRIZE_TAKEN' || failure === 'BUSY') continue; // another play took the last unit, or a busy moment: draw again
     if (failure === 'NOT_READY') return readEntry(userId, entryId); // a parallel request already played

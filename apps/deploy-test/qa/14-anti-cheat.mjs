@@ -1,8 +1,8 @@
-// QA session 14: repeat players. One play per QuickLook account, per name and per phone in a
-// session; a phone already used this session makes the claim a duplicate (prize back to the pool);
-// a winner with no phone is not verified and cannot collect; staff reclaim prizes; the admin finds
-// the same person across sessions (account, phone or name) in the plays report and at the desk.
-// The phone screens are not changed. Local only. Starts and ends with a reset.
+// QA session 14: repeat players. One play per QuickLook account, per name and per phone per day
+// (either game, any session); a phone already used today makes the claim a duplicate (prize back
+// to the pool); a winner with no phone is tagged Not verified and can still collect; staff reclaim
+// prizes; the admin finds the same person across sessions and days (account, phone or name).
+// The phone screens are unchanged apart from the "already played" wording. Local only, with resets.
 import { execFileSync } from 'node:child_process';
 import { createCipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -122,7 +122,7 @@ const [ra, rb] = await Promise.all([a.phone('0771000009'), b.phone('0771000009')
 const kept = [ra, rb].filter((r) => r.data?.result?.reference).length;
 check('C26', 'same phone at the same moment: one keeps the prize, the other gets no prize', kept === 1 && [ra, rb].filter(noPrize).length === 1);
 
-// 7. The next session: one play each again, and the admin sees the same person across sessions
+// 7. The next session the same day: one play per person per day, and the admin sees the person across sessions
 const hhmm = (t) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Colombo', hour: '2-digit', minute: '2-digit', hour12: false }).format(t);
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo' }).format(new Date());
 const cut = hhmm(Date.now() + 120_000);
@@ -140,48 +140,55 @@ expectStatus('C27c', 'the second session gets prizes', await su.call('PUT', `${G
 await new Promise((r) => setTimeout(r, 6_000)); // the APIs cache sessions for 5 seconds
 check('C28', 'the second session is the running one', Boolean(second) && (await status()).session?.sessionId === second?.sessionId);
 
+// Same day, next session: one play per person per day, so everyone who played is refused
+const beforeNext = await given(second?.sessionId);
 const k2 = await play(kasun);
-expectStatus('C29', 'Kasun may play once in the next session', k2.played ?? k2.entry, 200);
-const k2Claim = await k2.phone('0771000010');
-check('C30', 'and claim with a new phone (one play per session is allowed)', Boolean(k2Claim.data?.result?.reference));
-const rows2 = await report(second?.sessionId);
-check('C31', 'the next session\'s row is a Duplicate with 3 plays in the event', rowOf(rows2, k2.entryId)?.plays === 3, JSON.stringify(rowOf(rows2, k2.entryId)));
-const k2Desk = (await su.call('GET', `${G}/references/${k2Claim.data?.result?.reference}`)).data;
-check('C32', 'the desk shows both earlier plays, one already collected', k2Desk?.related?.length === 2 && k2Desk.related.some((p) => p.collectedAt), JSON.stringify(k2Desk?.related?.map((p) => [p.name, p.collectedAt])));
-const scans = (await su.call('GET', `${G}/entries/${k2.entryId}/person`)).data.items ?? [];
-check('C33', 'Scans lists all 3 plays oldest first, with scan time and session times', scans.length === 3 && scans[0].entryId === k.entryId && scans.every((p) => p.scannedAt && p.session?.endsAt), JSON.stringify(scans.map((p) => p.session?.name)));
-check('C34', 'Scans shows the full phone to the admin', scans.some((p) => p.phone === '0771000001'));
-const fresh = await play(account('Honest', 'Visitor'));
-check('C35', 'an honest new visitor plays and claims as today', Boolean((await fresh.phone('0771000012')).data?.result?.reference));
-expectStatus('C36', 'reclaim cannot touch a collected prize', await su.call('POST', `${G}/entries/${k.entryId}/reclaim`), 409, 'ALREADY_COLLECTED');
-
-// 8. More ways people try to cheat, in the second session
-// Same name on the other game, with a different account
-const kasunDip = await play(account('KASUN', 'perera'), 'lucky-dip');
-expectStatus('C37', 'same name on the other game is refused too', kasunDip.entry, 409, 'ALREADY_PLAYED_THIS_SESSION');
-// The refusal leaves the screen free: the next honest player starts at once
-const next = await play(account('Next', 'Person'), 'lucky-dip');
-expectStatus('C38', 'after a refusal the next player can play straight away', next.played ?? next.entry, 200);
-// The same phone written another way (+94, spaces) is still the same phone
+expectStatus('C29', 'Kasun cannot play again in the next session the same day', k2.entry, 409, 'ALREADY_PLAYED_THIS_SESSION');
+check('C29b', 'the answer says "today"', k2.entry.message === 'You have already played today', k2.entry.message);
+expectStatus('C30', 'Nimal (whose claim was a duplicate) also played today: refused', (await play(account('Nimal', 'Silva'), 'lucky-dip')).entry, 409, 'ALREADY_PLAYED_THIS_SESSION');
+expectStatus('C31', 'a new account with Kasun\'s name on the other game: refused', (await play(account('KASUN', 'perera'), 'lucky-dip')).entry, 409, 'ALREADY_PLAYED_THIS_SESSION');
+check('C32', 'no prize was drawn for any of them', (await given(second?.sessionId)) === beforeNext);
+const stranger = await play(account('Stranger', 'Person'));
+check('C33', 'a new person typing Kasun\'s phone (used today): no prize', noPrize(await stranger.phone('0771000001')));
 const plus = await play(account('Plus', 'Format'));
-check('C39', '+94 77 100 0010 is the same as 0771000010: no prize', noPrize(await plus.phone('+94 77 100 0010')));
-// A duplicate's prize is already back in the pool: reclaiming it again is refused
-expectStatus('C40', 'a duplicate cannot be reclaimed again', await su.call('POST', `${G}/entries/${plus.entryId}/reclaim`), 409, 'PRIZE_TAKEN_BACK');
-// A player whose turn timed out without playing has not played: they may scan again
+check('C34', 'the same phone written as +94 77 100 0001: no prize', noPrize(await plus.phone('+94 77 100 0001')));
+expectStatus('C35', 'a duplicate cannot be reclaimed again', await su.call('POST', `${G}/entries/${plus.entryId}/reclaim`), 409, 'PRIZE_TAKEN_BACK');
+expectStatus('C36', 'reclaim cannot touch a collected prize', await su.call('POST', `${G}/entries/${k.entryId}/reclaim`), 409, 'ALREADY_COLLECTED');
+// The refusals leave the screen free: the next honest players play and claim as today
+const fresh = await play(account('Honest', 'Visitor'));
+check('C37', 'an honest new visitor plays and claims as today', Boolean((await fresh.phone('0771000012')).data?.result?.reference));
+// A player whose turn timed out without playing has not played today: they may scan again
 const slow = client();
 const slowUser = account('Slow', 'Player');
 const slowLogin = await slow.call('POST', `${PLATFORM}/auth/v1/scan-login`, { qUser: qUser({ ...slowUser, iat: Math.floor(Date.now() / 1000) }), logoId: LOGO.spin });
-expectStatus('C41', 'a player scans and does not press Play', await slow.call('POST', `${GAMES}/games/v1/entries`, { scanId: slowLogin.data?.scanId }), 201);
+expectStatus('C38', 'a player scans and does not press Play', await slow.call('POST', `${GAMES}/games/v1/entries`, { scanId: slowLogin.data?.scanId }), 201);
 await free(); // staff free the screen (same as the time-out)
 const slowAgain = await play(slowUser);
-expectStatus('C42', 'they can scan again and play (nothing was counted)', slowAgain.played ?? slowAgain.entry, 200);
-// The plays report flags only real repeats in this session
+expectStatus('C39', 'they can scan again and play (nothing was counted)', slowAgain.played ?? slowAgain.entry, 200);
+// Admin across sessions
 const rows3 = await report(second?.sessionId);
-check('C43', 'honest players are not flagged', ['Next Person', 'Slow Player', 'Honest Visitor'].every((n) => rows3.find((r) => r.name === n)?.plays === 1), JSON.stringify(rows3.map((r) => [r.name, r.plays])));
-check('C44', 'the +94 duplicate is linked to Kasun (same phone)', (rowOf(rows3, plus.entryId)?.plays ?? 0) >= 4 && rowOf(rows3, plus.entryId)?.voided === 'duplicate');
-// Prize desk search by name finds every prize of the person with the other plays under each
+check('C40', 'honest players are not flagged', ['Honest Visitor', 'Slow Player'].every((n) => rows3.find((r) => r.name === n)?.plays === 1), JSON.stringify(rows3.map((r) => [r.name, r.plays])));
+check('C41', 'the stranger with Kasun\'s phone is linked to Kasun (Duplicate)', (rowOf(rows3, stranger.entryId)?.plays ?? 0) >= 3 && rowOf(rows3, stranger.entryId)?.voided === 'duplicate', JSON.stringify(rowOf(rows3, stranger.entryId)));
+const scans = (await su.call('GET', `${G}/entries/${stranger.entryId}/person`)).data.items ?? [];
+check('C42', 'Scans lists the person\'s plays oldest first, with scan and session times', scans.length >= 3 && scans[0].entryId === k.entryId && scans.every((p) => p.scannedAt && p.session?.endsAt), JSON.stringify(scans.map((p) => p.session?.name)));
+check('C43', 'Scans shows the full phone to the admin', scans.some((p) => p.phone === '0771000001'));
 const byName = (await su.call('GET', `${G}/references?q=Kasun`)).data.items ?? [];
-check('C45', 'desk search by name finds both of Kasun\'s prizes, each with the other plays', byName.length === 2 && byName.every((r) => r.related.length >= 2), JSON.stringify(byName.map((r) => [r.reference, r.related.length])));
+check('C44', 'desk search by name finds Kasun\'s prize with the other plays under it', byName.length === 1 && byName[0].related.length >= 3, JSON.stringify(byName.map((r) => [r.reference, r.related.length])));
+
+// The next day: yesterday's plays do not block. Kasun's day records move to an earlier date
+// (as if he played yesterday), then he plays again.
+const { DynamoDBClient, QueryCommand, PutItemCommand, DeleteItemCommand } = await import('@aws-sdk/client-dynamodb');
+const ddb = new DynamoDBClient({ endpoint: 'http://localhost:8100', region: 'local', credentials: { accessKeyId: 'local', secretAccessKey: 'local' } });
+const dayItems = (await ddb.send(new QueryCommand({ TableName: 'lkdr-games-event', KeyConditionExpression: 'PK = :pk', ExpressionAttributeValues: { ':pk': { S: `DAY#${today}` } } }))).Items ?? [];
+check('C45', 'today\'s day records exist (account, name and phone)', ['ACCOUNT#', 'NAME#', 'PHONE#'].every((p) => dayItems.some((i) => i.SK.S.startsWith(p))), dayItems.map((i) => i.SK.S).join(','));
+for (const item of dayItems) {
+  await ddb.send(new PutItemCommand({ TableName: 'lkdr-games-event', Item: { ...item, PK: { S: 'DAY#2000-01-01' } } }));
+  await ddb.send(new DeleteItemCommand({ TableName: 'lkdr-games-event', Key: { PK: item.PK, SK: item.SK } }));
+}
+const nextDay = await play(kasun);
+expectStatus('C46', 'the next day Kasun can play once again', nextDay.played ?? nextDay.entry, 200);
+check('C47', 'and claim with his own phone', Boolean((await nextDay.phone('0771000001')).data?.result?.reference));
+expectStatus('C48', 'but not twice that day', (await play(kasun, 'lucky-dip')).entry, 409, 'ALREADY_PLAYED_THIS_SESSION');
 
 reset();
 summary();

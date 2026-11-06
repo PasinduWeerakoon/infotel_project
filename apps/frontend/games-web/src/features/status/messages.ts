@@ -49,6 +49,7 @@ const scanAgain: Omit<StatusMessage, 'facts'> = {
 
 export function statusMessage(code: string, details: Details = {}): StatusMessage {
   switch (code) {
+    // One play per visitor per day (the code keeps its first name, the server still sends it)
     case 'ALREADY_PLAYED_THIS_SESSION': {
       const played = details.playedGame as Game | null;
       const requested = details.requestedGame as Game | undefined;
@@ -56,13 +57,11 @@ export function statusMessage(code: string, details: Details = {}): StatusMessag
       return {
         icon: otherGame ? IconLock : IconCircleCheck,
         tone: otherGame ? 'warning' : 'success',
-        label: 'One play per session',
-        title: otherGame
-          ? `${GAME_NAMES[requested]} is not available for you now`
-          : 'You have already played in this session',
+        label: 'One play per day',
+        title: "You've already played today",
         body: otherGame
-          ? `You already played ${GAME_NAMES[played]} in this session. You can play either game again in the next session.`
-          : 'Each visitor gets one play per session, Spin the Wheel or Lucky Dip.',
+          ? `You played ${GAME_NAMES[played]} earlier today. Each visitor can play once a day, so this game isn't available for you right now. Thank you for playing with us!`
+          : 'Thank you for joining in! Each visitor can play once a day, either Spin the Wheel or Lucky Dip. We hope you enjoyed the game.',
         facts: [
           ...(played
             ? [
@@ -74,7 +73,6 @@ export function statusMessage(code: string, details: Details = {}): StatusMessag
                 },
               ]
             : []),
-          ...nextSessionFact(details),
         ],
         resultEntryId: (details.entryId as string | null) ?? undefined,
       };

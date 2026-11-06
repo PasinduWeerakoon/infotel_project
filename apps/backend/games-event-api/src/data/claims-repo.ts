@@ -2,10 +2,13 @@
  * Anti-cheat guards and prize claims. A guard is a small item written with a condition inside the
  * same transaction as the play or the claim, so two phones at the same moment cannot both pass.
  *
- *   One play per name per session    (a second QuickLook account with the same name)
- *   One play per phone per session   (friends swapping one phone between accounts)
+ *   One play per QuickLook account per day   (any session, either game)
+ *   One play per name per day                (a second QuickLook account with the same name)
+ *   One play per phone per day               (friends swapping one phone between accounts)
  *
- * The account guard (one play per QuickLook account per session) is in entries-repo.
+ * The day is the session's date (Colombo). Guards are written when a game is played, so a scan
+ * that timed out without playing does not count. The session guard in entries-repo still keeps
+ * one live entry per account while a visitor gets ready.
  * A prize taken back (a duplicate phone, or reclaimed by staff) keeps the play as a record and
  * goes back to the session's pool.
  */
@@ -21,35 +24,50 @@ export type TransactItem = NonNullable<
   ConstructorParameters<typeof TransactWriteCommand>[0]['TransactItems']
 >[number];
 
-/** Put only when the item is missing (the first play with this name or phone in the session) */
+/** Put only when the item is missing (the first play today with this account, name or phone) */
 const firstUse = (key: Record<string, string>, entryId: string): TransactItem => ({
   Put: { TableName: T(), Item: { ...key, entryId }, ConditionExpression: 'attribute_not_exists(PK)' },
 });
 
-/** One play per name per session (the name is already normalized; no guard for an empty name) */
-export const nameGuard = (sessionId: string, name: string, entryId: string): TransactItem[] =>
-  name ? [firstUse(keys.sessionName(sessionId, name), entryId)] : [];
+/** One play per phone per day (no guard for an empty phone) */
+const phoneGuard = (date: string, phone: string, entryId: string): TransactItem[] =>
+  phone ? [firstUse(keys.dayPhone(date, phone), entryId)] : [];
 
-/** One play per phone per session (no guard for an empty phone) */
-export const phoneGuard = (sessionId: string, phone: string, entryId: string): TransactItem[] =>
-  phone ? [firstUse(keys.sessionPhone(sessionId, phone), entryId)] : [];
+/** One play per day for this account and name (normalized), and phone when it is known */
+export function dayGuards(input: {
+  date: string;
+  userId: string;
+  name: string;
+  phone: string;
+  entryId: string;
+}): TransactItem[] {
+  const { date, userId, name, phone, entryId } = input;
+  return [
+    firstUse(keys.dayAccount(date, userId), entryId),
+    ...(name ? [firstUse(keys.dayName(date, name), entryId)] : []),
+    ...phoneGuard(date, phone, entryId),
+  ];
+}
 
-/** Has this name already played in the session? Checked early, before the screen is taken. */
-export async function nameHasPlayed(sessionId: string, name: string): Promise<boolean> {
-  if (!name) return false;
-  const result = await db.send(
-    new GetCommand({ TableName: T(), Key: keys.sessionName(sessionId, name), ConsistentRead: true }),
-  );
-  return Boolean(result.Item);
+/**
+ * The play this account or name already made today, if any (its entry ID). Checked early, before
+ * the screen is taken; the play transaction checks it again.
+ */
+export async function playedToday(date: string, userId: string, name: string): Promise<string | undefined> {
+  for (const Key of [keys.dayAccount(date, userId), ...(name ? [keys.dayName(date, name)] : [])]) {
+    const result = await db.send(new GetCommand({ TableName: T(), Key, ConsistentRead: true }));
+    if (result.Item) return String(result.Item.entryId);
+  }
+  return undefined;
 }
 
 export type ClaimOutcome = 'claimed' | 'duplicate' | 'not-open';
 
 /**
  * A QuickLook winner gives the phone after the win: saved on the play and on the reference, once.
- * `duplicate`: the phone already played this session. `not-open`: already given, collected or taken back.
+ * `duplicate`: the phone already played today. `not-open`: already given, collected or taken back.
  */
-export async function claimWithPhone(entry: Entry, phone: string): Promise<ClaimOutcome> {
+export async function claimWithPhone(entry: Entry, phone: string, date: string): Promise<ClaimOutcome> {
   const reference = entry.reference as string;
   const items: TransactItem[] = [
     {
@@ -71,7 +89,7 @@ export async function claimWithPhone(entry: Entry, phone: string): Promise<Claim
         ExpressionAttributeValues: { ':phone': phone, ':entryId': entry.entryId, ':null': null },
       },
     },
-    ...phoneGuard(entry.sessionId, phone, entry.entryId),
+    ...phoneGuard(date, phone, entry.entryId),
   ];
   try {
     await retryOnConflict(() => db.send(new TransactWriteCommand({ TransactItems: items })));
