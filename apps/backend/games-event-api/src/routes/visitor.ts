@@ -43,9 +43,10 @@ export const visitorRoutes: Route[] = [
     method: 'POST',
     path: '/games/v1/entries',
     handler: async (req) => {
-      const { userId } = await visitor(req);
+      const { userId, firstName, nameLocked } = await visitor(req);
       const { scanId } = parseBody(z.object({ scanId: z.string().min(1).max(100) }), req);
-      const { created, view } = await startEntry(userId, scanId);
+      // A locked name (QuickLook or guest) is checked early: one play per name per session
+      const { created, view } = await startEntry(userId, scanId, nameLocked ? firstName : '');
       return json(view, created ? 201 : 200);
     },
   },

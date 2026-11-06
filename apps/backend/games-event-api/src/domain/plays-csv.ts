@@ -1,9 +1,10 @@
 /**
  * One row of the plays report and its CSV form.
  */
-import type { Game } from './types.js';
+import type { Game, VoidReason } from './types.js';
 
 export interface PlayRow {
+  entryId: string;
   playedAt: string;
   game: Game;
   name: string;
@@ -13,6 +14,23 @@ export interface PlayRow {
   reference: string;
   collectedAt: string;
   collectedBy: string;
+  /** Plays in the whole event by the same person (shared account, phone or name), this one included */
+  plays: number;
+  /** A winner who gave no phone: tagged Not verified (it can still be collected) */
+  phoneMissing: boolean;
+  /** The prize was taken back, and why */
+  voided: VoidReason | '';
+}
+
+/** The row's check result as staff read it */
+export function playStatus(r: Pick<PlayRow, 'plays' | 'phoneMissing' | 'voided'>): string {
+  const parts = [
+    ...(r.plays > 1 ? ['Duplicate'] : []),
+    ...(r.phoneMissing ? ['Not verified with phone number'] : []),
+    ...(r.voided === 'duplicate' ? ['Phone already used this session, prize taken back'] : []),
+    ...(r.voided === 'reclaimed' ? ['Prize reclaimed'] : []),
+  ];
+  return parts.length ? parts.join(', ') : 'OK';
 }
 
 const GAME_NAMES: Record<Game, string> = { spin: 'Spin the Wheel', 'lucky-dip': 'Lucky Dip' };
@@ -31,6 +49,8 @@ const COLUMNS: [string, (r: PlayRow) => string][] = [
   ['Collected', (r) => (r.reference ? (r.collectedAt ? 'Yes' : 'No') : '')],
   ['Collected at (Colombo)', (r) => localTime(r.collectedAt)],
   ['Collected by', (r) => r.collectedBy],
+  ['Checks', playStatus],
+  ['Plays in event by this person', (r) => String(r.plays)],
 ];
 
 /**

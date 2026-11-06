@@ -25,3 +25,15 @@ h4.ant-typography,
 .ant-statistic-content {
   font-family: "Fredoka Variable", "Nunito Variable", ui-rounded, system-ui, sans-serif !important;
 }
+
+/* A play by someone who played more than once in the event (shared account, phone or name) */
+.ant-table-tbody > tr.play-repeat > td,
+.ant-table-tbody > tr.play-repeat:hover > td {
+  background: #fff1f0 !important;
+}
+
+/* The play being looked at, among the same person's plays */
+.ant-table-tbody > tr.play-current > td,
+.ant-table-tbody > tr.play-current:hover > td {
+  background: #fff7e6 !important;
+}

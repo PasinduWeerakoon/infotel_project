@@ -2,7 +2,7 @@
 // refuse what breaks the rules, add a prize, save while plays land, and how main prizes behave
 // when their number is raised halfway. Local only. Starts and ends with a reset.
 import { execFileSync } from 'node:child_process';
-import { GAMES, adminAs, check, expectStatus, person, summary } from './lib.mjs';
+import { adminAs, check, expectStatus, GAMES, person, qaPlayer, summary } from './lib.mjs';
 
 const reset = () => execFileSync('node', [new URL('./reset-local.mjs', import.meta.url).pathname], { stdio: 'ignore' });
 reset();
@@ -23,7 +23,7 @@ async function play(game = 'spin') {
   const p = await person();
   const e = await p.enter(LOGO[game]);
   if (e.status !== 201) { await release(game); return { code: e.code ?? String(e.status) }; }
-  const r = await p.call('POST', `${GAMES}/games/v1/entries/${e.data.entryId}/play`, { player: { name: 'QA Live', phone: '0771234567' } });
+  const r = await p.call('POST', `${GAMES}/games/v1/entries/${e.data.entryId}/play`, { player: qaPlayer('QA Live') });
   await release(game);
   return r.status === 200 ? { prizeId: r.data.result.prize?.prizeId } : { code: r.code ?? String(r.status) };
 }
@@ -76,7 +76,7 @@ check('L15', 'the next player wins the new prize B', bWin.prizeId === B.prizeId,
 const early = await person();
 const entry = await early.enter(LOGO.spin);
 expectStatus('L16', 'raise B to 10 while a player is on the wheel (entered, not played)', await save([{ game: 'spin', prizeId: B.prizeId, allocated: 10 }]), 200);
-const late = await early.call('POST', `${GAMES}/games/v1/entries/${entry.data.entryId}/play`, { player: { name: 'QA Live', phone: '0771234567' } });
+const late = await early.call('POST', `${GAMES}/games/v1/entries/${entry.data.entryId}/play`, { player: qaPlayer('QA Live') });
 await release('spin');
 check('L17', 'that player still plays and wins', late.status === 200 && late.data.result.prize?.prizeId === B.prizeId, `${late.status} ${late.code ?? ''}`);
 let b = await cell(B.prizeId);

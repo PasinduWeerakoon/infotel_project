@@ -54,7 +54,14 @@ export function StallScreen() {
           setSession(message.session);
           setNextSession(message.nextSession);
           setGame(message.game);
-          if (!busy.current) setView({ kind: message.state === 'closed' ? 'closed' : 'idle' });
+          // This also answers every ping (every 30 seconds). "busy" means a player holds the screen:
+          // keep their Get ready view instead of going back to the logos while they choose.
+          if (!busy.current)
+            setView((current) => {
+              if (message.state === 'closed') return { kind: 'closed' };
+              if (message.state === 'busy' && current.kind === 'reserved') return current;
+              return { kind: 'idle' };
+            });
           break;
         case 'entry.started':
           if (!busy.current)

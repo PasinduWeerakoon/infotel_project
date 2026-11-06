@@ -1,5 +1,5 @@
 // QA session 11: never more prizes than the admin allocated (both games, repeated taps, crowds)
-import { GAMES, adminAs, check, expectStatus, person, summary } from './lib.mjs';
+import { adminAs, check, expectStatus, GAMES, person, qaPlayer, summary } from './lib.mjs';
 
 const G = `${GAMES}/admin/v1/games`;
 const su = await adminAs();
@@ -41,7 +41,7 @@ for (let i = 0; i < 40 && !(ended.spin && ended['lucky-dip']); i++) {
   const entry = await p.enter(logo);
   if (entry.code === 'NO_PRIZES_LEFT') { ended[game] = true; refusedAfterEmpty++; continue; }
   if (entry.status !== 201) { console.log('      entry', entry.status, entry.code); await release(); continue; }
-  const taps = await Promise.all([1, 2, 3].map(() => p.call('POST', `${GAMES}/games/v1/entries/${entry.data.entryId}/play`, { player: { name: 'QA Stock', phone: '0771234567' } })));
+  const taps = await Promise.all([1, 2, 3].map(() => p.call('POST', `${GAMES}/games/v1/entries/${entry.data.entryId}/play`, { player: qaPlayer('QA Stock') })));
   const ok = taps.filter((t) => t.status === 200);
   if (new Set(ok.map((t) => t.data?.result?.reference)).size > 1) duplicateResults++;
   const prize = ok[0]?.data?.result?.prize;

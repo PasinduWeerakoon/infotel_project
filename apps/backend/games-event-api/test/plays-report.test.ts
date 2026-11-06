@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type PlayRow, csvCell, toCsv } from '../src/domain/plays-csv.js';
 
 const row: PlayRow = {
+  entryId: 'ent_1',
   playedAt: '2026-11-04T10:00:00+05:30',
   game: 'spin',
   name: 'Nimal "Sudu" Perera',
@@ -11,6 +12,9 @@ const row: PlayRow = {
   reference: 'LKD-7K3Q-9X',
   collectedAt: '',
   collectedBy: '',
+  plays: 1,
+  phoneMissing: false,
+  voided: '',
 };
 
 describe('plays CSV', () => {
@@ -30,7 +34,7 @@ describe('plays CSV', () => {
       .trim()
       .split('\r\n');
     expect(lines[0]).toBe(
-      '"Played at (Colombo)","Game","Name","Phone","QuickLook user ID","Prize","Reference","Collected","Collected at (Colombo)","Collected by"',
+      '"Played at (Colombo)","Game","Name","Phone","QuickLook user ID","Prize","Reference","Collected","Collected at (Colombo)","Collected by","Checks","Plays in event by this person"',
     );
     expect(lines[1]).toContain('"Spin the Wheel","Nimal ""Sudu"" Perera","077****567"');
     expect(lines[1]).toContain('"No"');
@@ -43,6 +47,19 @@ describe('plays CSV', () => {
       toCsv([{ ...row, prize: '', reference: '' }])
         .trim()
         .split('\r\n')[1] ?? '';
-    expect(line.endsWith('"","","",""')).toBe(true);
+    expect(line.endsWith('"","","","","OK","1"')).toBe(true);
+  });
+
+  it('adds the checks and the plays in the event by the same person', () => {
+    const lines = toCsv([
+      { ...row, plays: 5 },
+      { ...row, phoneMissing: true },
+      { ...row, plays: 2, voided: 'duplicate' },
+      { ...row, voided: 'reclaimed' },
+    ]).split('\r\n');
+    expect(lines[1]).toContain('"Duplicate","5"');
+    expect(lines[2]).toContain('"Not verified with phone number","1"');
+    expect(lines[3]).toContain('"Duplicate, Phone already used this session, prize taken back","2"');
+    expect(lines[4]).toContain('"Prize reclaimed","1"');
   });
 });

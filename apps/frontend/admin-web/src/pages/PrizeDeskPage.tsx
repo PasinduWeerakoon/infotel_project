@@ -2,7 +2,9 @@
  * A6: prize desk for both events. Find a Games prize by its reference ID or the name the player
  * typed on the phone (with their phone number). Find a Treasure Hunt winner by player number,
  * name or QuickLook user ID (the phone number is found with the ID in QuickLook). A prize can be
- * collected once.
+ * collected once. A Games prize lists every other play in the event by the same person (account,
+ * phone or name) underneath, warns when they already collected a prize, and lets staff reclaim it.
+ * A prize taken back cannot be collected; a winner who gave no phone is tagged Not verified.
  */
 import { IconGift, IconSearch, IconUserCheck } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -32,6 +34,7 @@ import { PageHeader } from '../components/PageHeader';
 import { StatusTag } from '../components/StatusTag';
 import { useAction } from '../hooks/useAction';
 import { formatDateTime, formatTime } from '../lib/format';
+import { PersonPlaysTable, PlayTags, ReclaimButton } from './games/PlayChecks';
 import { PlayerCell } from './hunt/WinnersCard';
 
 export function PrizeDeskPage() {
@@ -102,6 +105,12 @@ function GamesDesk() {
     },
   });
 
+  const reload = async (reference: string) => {
+    const view = await gamesApi.reference(reference);
+    setFound(view);
+    setMatches((list) => list.map((r) => (r.reference === view.reference ? view : r)));
+  };
+
   const search = async (value: string) => {
     if (!value.trim()) return;
     setSearching(true);
@@ -121,7 +130,7 @@ function GamesDesk() {
   };
 
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 760 }}>
+    <Flex vertical gap={16} style={{ maxWidth: 1040 }}>
       <Input.Search
         size="large"
         placeholder="Reference ID or player name, for example LKD 7Q4K 29 or Nimal"
@@ -163,7 +172,12 @@ function GamesDesk() {
             },
             {
               title: 'Status',
-              render: (_, r) => <StatusTag status={r.collectedAt ? 'collected' : 'pending'} />,
+              render: (_, r) => (
+                <Flex vertical gap={4}>
+                  {r.voided ? null : <StatusTag status={r.collectedAt ? 'collected' : 'pending'} />}
+                  <PlayTags plays={r.related.length + 1} phoneMissing={r.phoneMissing} voided={r.voided} />
+                </Flex>
+              ),
             },
           ]}
         />
@@ -198,8 +212,13 @@ function GamesDesk() {
                 <Typography.Title level={4} style={{ margin: 0 }}>
                   {found.prize?.name}
                 </Typography.Title>
-                <StatusTag status={found.collectedAt ? 'collected' : 'pending'} />
+                {found.voided ? null : <StatusTag status={found.collectedAt ? 'collected' : 'pending'} />}
               </Flex>
+              <PlayTags
+                plays={found.related.length + 1}
+                phoneMissing={found.phoneMissing}
+                voided={found.voided}
+              />
               <Descriptions
                 size="small"
                 column={1}
@@ -226,26 +245,60 @@ function GamesDesk() {
                   showIcon
                   message={`Collected at ${formatTime(found.collectedAt)} by ${found.collectedBy}. It cannot be used again.`}
                 />
+              ) : found.voided ? (
+                <Alert type="error" showIcon message="This prize was taken back. Do not hand it over." />
               ) : (
-                <Popconfirm
-                  title="Hand over the prize and mark it collected?"
-                  onConfirm={() => collect.mutate(found.reference)}
-                >
-                  <Button
-                    type="primary"
-                    size="large"
-                    loading={collect.isPending}
-                    style={{ alignSelf: 'flex-start' }}
-                  >
-                    Mark as collected
-                  </Button>
-                </Popconfirm>
+                <Flex vertical gap={10} align="flex-start">
+                  <AlreadyCollected related={found.related} />
+                  <Flex gap={10} wrap align="center">
+                    <Popconfirm
+                      title="Hand over the prize and mark it collected?"
+                      onConfirm={() => collect.mutate(found.reference)}
+                    >
+                      <Button type="primary" size="large" loading={collect.isPending}>
+                        Mark as collected
+                      </Button>
+                    </Popconfirm>
+                    {found.related.length > 0 || found.phoneMissing ? (
+                      <ReclaimButton
+                        size="large"
+                        entryId={found.entryId}
+                        onDone={() => reload(found.reference)}
+                      />
+                    ) : null}
+                  </Flex>
+                </Flex>
               )}
             </Flex>
           </Flex>
+          {found.related.length > 0 ? (
+            <Flex vertical gap={8} style={{ marginTop: 20 }}>
+              <Typography.Text strong type="danger">
+                Duplicate: {found.related.length} other {found.related.length === 1 ? 'play' : 'plays'} in the
+                event by the same person (QuickLook account, phone or name)
+              </Typography.Text>
+              <PersonPlaysTable plays={found.related} />
+            </Flex>
+          ) : null}
         </Card>
       ) : null}
     </Flex>
+  );
+}
+
+/** Warns when the same person already collected another prize in the event */
+function AlreadyCollected({ related }: { related: ReferenceView['related'] }) {
+  const collected = related.filter((p) => p.collectedAt);
+  if (collected.length === 0) return null;
+  return (
+    <Alert
+      type="error"
+      showIcon
+      message={`This person already collected ${collected.length === 1 ? 'a prize' : `${collected.length} prizes`} in the event`}
+      description={collected
+        .map((p) => `${p.prize} on ${formatDateTime(p.collectedAt)} by ${p.collectedBy} (${p.reference})`)
+        .join('. ')}
+    />
   );
 }
 

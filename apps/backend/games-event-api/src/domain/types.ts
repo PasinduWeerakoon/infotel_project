@@ -63,6 +63,22 @@ export interface Entry {
   reference: string | null;
   /** Name and phone the visitor typed before playing (not validated) */
   player?: PlayerDetails | null;
+  /** Set when the prize was taken back; the play stays as a record */
+  voided?: Voided | null;
+  /** The prize this play won before it was taken back */
+  voidedPrizeId?: string | null;
+}
+
+/**
+ * Why a prize was taken back: the phone was already used this session by another player
+ * (duplicate), or staff reclaimed it at the prize desk or in the plays report (reclaimed).
+ */
+export type VoidReason = 'duplicate' | 'reclaimed';
+
+export interface Voided {
+  reason: VoidReason;
+  at: string;
+  by: string;
 }
 
 export interface PlayerDetails {

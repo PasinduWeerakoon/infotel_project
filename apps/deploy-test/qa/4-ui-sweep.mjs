@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
-import { ADMIN_PASSWORD, GAMES, adminAs, check, summary } from './lib.mjs';
+import { ADMIN_PASSWORD, adminAs, check, GAMES, qaPhone, qaPlayer, summary } from './lib.mjs';
 
 const browser = await chromium.launch({ channel: 'chrome' });
 const watch = (page, bag) => {
@@ -41,8 +41,8 @@ await sweep('U1', 'games phone flow at 360 px: scan, spin, result, done', small,
   if (p.url().includes('/status/')) return notes.push(`landed on ${p.url()}`);
   // Spin asks for the name and phone first, and Spin stays disabled until they are given
   if (!(await p.getByRole('button', { name: /spin/i }).isDisabled())) notes.push('Spin was enabled before the name and phone');
-  await p.getByLabel('Your name').fill('QA Phone Player');
-  await p.getByLabel('Phone number').fill('0771234567');
+  await p.getByLabel('Your name').fill(qaPlayer('QA Phone Player').name);
+  await p.getByLabel('Phone number').fill(qaPhone());
   await noOverflow(p, notes, 'name and phone popup');
   await p.getByRole('button', { name: /continue/i }).click();
   await p.getByRole('button', { name: /spin/i }).click();
@@ -70,8 +70,8 @@ await sweep('U2', 'Lucky Dip phone flow at 360 px', small, async (p, notes) => {
   if (p.url().includes('/status/')) return notes.push(`landed on ${p.url()}`);
   // Lucky Dip asks for the name and phone too, and the boxes stay locked until then
   if (!(await p.getByRole('button', { name: 'Box 1' }).isDisabled())) notes.push('boxes were open before the name and phone');
-  await p.getByLabel('Your name').fill('QA Dip Player');
-  await p.getByLabel('Phone number').fill('0771234567');
+  await p.getByLabel('Your name').fill(qaPlayer('QA Dip Player').name);
+  await p.getByLabel('Phone number').fill(qaPhone());
   await p.getByRole('button', { name: /continue/i }).click();
   await p.getByRole('button', { name: 'Box 1' }).click();
   await p.getByRole('button', { name: 'Box 2' }).click({ timeout: 1500 }).catch(() => {});

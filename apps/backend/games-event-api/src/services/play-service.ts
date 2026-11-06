@@ -5,6 +5,7 @@
 import { ulid } from 'ulid';
 import { imageUrl } from '../config.js';
 import { getSettings, listPrizes } from '../data/catalog-repo.js';
+import { claimWithPhone, nameGuard, nameHasPlayed, phoneGuard, voidPrize } from '../data/claims-repo.js';
 import {
   createEntry,
   expireEntry,
@@ -14,12 +15,12 @@ import {
   getReference,
   hasMainPrizeToday,
   savePlay,
-  saveWinnerPhone,
 } from '../data/entries-repo.js';
 import { waitForScan } from '../data/platform-scans.js';
 import { PLAY_LOCK } from '../data/screens-repo.js';
 import { getSession, listAllocations, upcomingSessions } from '../data/sessions-repo.js';
 import { type DrawCandidate, drawPrize } from '../domain/draw.js';
+import { normalizeName } from '../domain/identity.js';
 import { maskPhone, normalizePhone } from '../domain/player.js';
 import { newReference } from '../domain/reference.js';
 import { currentSession, nextSession, releaseWindow } from '../domain/sessions.js';
@@ -85,10 +86,11 @@ export async function entryView(entry: Entry) {
   let result = null;
   if (entry.status === 'played') {
     const prize = entry.prizeId ? (await listPrizes()).find((p) => p.prizeId === entry.prizeId) : undefined;
-    const reference = entry.reference ? await getReference(entry.reference) : undefined;
+    const reference = entry.reference && !entry.voided ? await getReference(entry.reference) : undefined;
+    // A prize taken back still lands on the slice it won, so a replayed animation looks the same
     const target = Math.max(
       0,
-      segments.findIndex((s) => s.id === entry.prizeId),
+      segments.findIndex((s) => s.id === (entry.prizeId ?? entry.voidedPrizeId)),
     );
     result = {
       prize: prize
@@ -99,7 +101,8 @@ export async function entryView(entry: Entry) {
             isMainPrize: prize.isMainPrize,
           }
         : null,
-      reference: entry.reference,
+      // A prize taken back has no prize and no reference: the phone shows "no prize to collect"
+      reference: entry.voided ? null : entry.reference,
       playedAt: entry.playedAt,
       collectedAt: reference?.collectedAt ?? null,
       // A QuickLook winner has not given a phone yet: the result page asks before showing the reference
@@ -120,7 +123,7 @@ export async function entryView(entry: Entry) {
 }
 
 /** POST /games/v1/entries: a scan becomes an entry if every rule allows it. */
-export async function startEntry(userId: string, scanId: string) {
+export async function startEntry(userId: string, scanId: string, name = '') {
   const scan = await waitForScan(scanId);
   if (!scan) throw new HttpError(422, 'SCAN_NOT_FOUND', 'Please scan the logo again with the QuickLook app');
   if (scan.userId !== userId)
@@ -155,6 +158,11 @@ export async function startEntry(userId: string, scanId: string) {
 
   // One play per session across both games. An entry that expired unplayed can be replaced.
   const guard = await getPlayerGuard(session.sessionId, userId);
+  // One play per name per session: a second QuickLook account with the same name gets the same
+  // answer as a second play. The play transaction checks it again; this only answers early.
+  if (!guard && (await nameHasPlayed(session.sessionId, normalizeName(name)))) {
+    throw alreadyPlayed(undefined, sessions, game);
+  }
   let replaceExpired: string | undefined;
   if (guard) {
     const previous = await getEntry(guard.entryId);
@@ -247,15 +255,23 @@ export async function readEntry(userId: string, entryId: string) {
   return entryView(entry);
 }
 
-/** POST /games/v1/entries/:entryId/phone: a QuickLook winner gives the phone for the prize desk. */
+/**
+ * POST /games/v1/entries/:entryId/phone: a QuickLook winner gives the phone for the prize desk.
+ * The first valid number is final. A number that already played this session (another account)
+ * makes this play a duplicate: the prize goes back to the pool and the phone shows no prize.
+ */
 export async function addWinnerPhone(userId: string, entryId: string, input: string) {
   const entry = await getEntry(entryId);
   if (!entry || entry.userId !== userId)
     throw new HttpError(404, 'ENTRY_NOT_FOUND', 'Please scan the logo again');
   const phone = normalizePhone(input);
   if (!phone) throw new HttpError(422, 'PHONE_INVALID', 'Please check your phone number');
-  if (entry.reference && entry.player && !entry.player.phone) {
-    await saveWinnerPhone(entryId, entry.reference, phone); // false: already given or collected
+  if (entry.reference && entry.player && !entry.player.phone && !entry.voided) {
+    // 'not-open': already given, collected or taken back, so nothing changes
+    if ((await claimWithPhone(entry, phone)) === 'duplicate') {
+      await voidPrize(entry, { reason: 'duplicate', by: 'system', at: nowIso(), phone });
+      logger.info('Duplicate phone, prize taken back', { entryId, sessionId: entry.sessionId });
+    }
   }
   return readEntry(userId, entryId);
 }
@@ -288,6 +304,11 @@ export async function playEntry(userId: string, entryId: string, player: PlayerD
   const today = colomboDate();
   const excludeMain = settings.repeatWinnerRule && (await hasMainPrizeToday(userId, today));
   const prizeById = new Map(prizes.map((p) => [p.prizeId, p]));
+  // A guest's phone is known now; a QuickLook player's phone is checked when given after the win
+  const guards = [
+    ...nameGuard(entry.sessionId, normalizeName(player.name), entryId),
+    ...phoneGuard(entry.sessionId, player.phone, entryId),
+  ];
 
   for (let attempt = 1; attempt <= MAX_DRAW_ATTEMPTS; attempt++) {
     const allocations = await listAllocations(entry.sessionId, entry.game);
@@ -318,7 +339,14 @@ export async function playEntry(userId: string, entryId: string, player: PlayerD
       reference: newReference(),
       player,
       rememberMainPrizeOn: settings.repeatWinnerRule ? today : null,
+      guards,
     });
+    if (failure === 'GUARD') {
+      // This name (or phone) already played this session: no prize is drawn and the screen is freed
+      await expireEntry(entry);
+      await notifyScreens(entry.game, { type: 'entry.ended', entryId });
+      throw alreadyPlayed(undefined, sessions, entry.game);
+    }
     if (failure === 'PRIZE_TAKEN' || failure === 'BUSY') continue; // another play took the last unit, or a busy moment: draw again
     if (failure === 'NOT_READY') return readEntry(userId, entryId); // a parallel request already played
 

@@ -5,6 +5,7 @@ export type Game = 'spin' | 'lucky-dip';
 export const GAMES: Game[] = ['spin', 'lucky-dip'];
 /** One play in the plays report. The phone is masked, the collected fields are empty until collected */
 export interface PlayRow {
+  entryId: string;
   playedAt: string;
   game: Game;
   name: string;
@@ -14,6 +15,34 @@ export interface PlayRow {
   reference: string;
   collectedAt: string;
   collectedBy: string;
+  /** Plays in the whole event by the same person (shared account, phone or name), this one included */
+  plays: number;
+  /** A winner who gave no phone: tagged Not verified (it can still be collected) */
+  phoneMissing: boolean;
+  /** The prize was taken back, and why */
+  voided: VoidReason | '';
+}
+
+/** Why a prize was taken back: the phone was already used this session, or staff reclaimed it */
+export type VoidReason = 'duplicate' | 'reclaimed';
+
+/** One play of a person in the event (Scans panel and prize desk) */
+export interface PersonPlay {
+  entryId: string;
+  date: string;
+  session: { name: string; startsAt: string; endsAt: string } | null;
+  game: Game;
+  scannedAt: string;
+  playedAt: string | null;
+  name: string;
+  phone: string;
+  userId: string;
+  prize: string | null;
+  reference: string | null;
+  collectedAt: string | null;
+  collectedBy: string | null;
+  voided: VoidReason | null;
+  phoneMissing: boolean;
 }
 
 export const GAME_LABELS: Record<Game, string> = { spin: 'Spin the Wheel', 'lucky-dip': 'Lucky Dip' };
@@ -98,6 +127,7 @@ export interface Live {
 
 export interface ReferenceView {
   reference: string;
+  entryId: string;
   userId: string;
   game: Game;
   wonAt: string;
@@ -107,6 +137,11 @@ export interface ReferenceView {
   player?: { name: string; phone: string } | null;
   prize: { prizeId: string; name: string; imageUrl: string | null } | null;
   session: { sessionId: string; name: string; date: string } | null;
+  voided: VoidReason | null;
+  /** The winner gave no phone: tagged Not verified (it can still be collected) */
+  phoneMissing: boolean;
+  /** Other plays in the event by the same person (account, phone or name), oldest first */
+  related: PersonPlay[];
 }
 
 export interface SessionInput {
@@ -161,6 +196,10 @@ export const gamesApi = {
     http.get<ReferenceView>(`${B}/references/${encodeURIComponent(reference)}`),
   collect: (reference: string) =>
     http.post<ReferenceView>(`${B}/references/${encodeURIComponent(reference)}/collect`),
+  personPlays: (entryId: string) =>
+    http.get<{ items: PersonPlay[] }>(`${B}/entries/${encodeURIComponent(entryId)}/person`),
+  reclaim: (entryId: string) =>
+    http.post<{ reclaimed: boolean }>(`${B}/entries/${encodeURIComponent(entryId)}/reclaim`),
   plays: (sessionId: string) => http.get<{ items: PlayRow[] }>(`${B}/reports/plays${qs({ sessionId })}`),
   downloadPlaysCsv: (sessionId: string, filename: string) =>
     http.download(`${B}/reports/plays${qs({ sessionId, format: 'csv' })}`, filename),

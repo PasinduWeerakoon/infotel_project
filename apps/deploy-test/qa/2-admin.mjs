@@ -1,5 +1,5 @@
 // QA session 2: admin dashboard APIs
-import { GAMES, HUNT, PLATFORM, adminAs, check, client, expectStatus, person, summary } from './lib.mjs';
+import { adminAs, check, client, expectStatus, GAMES, HUNT, person, PLATFORM, qaPhone, summary } from './lib.mjs';
 
 const G = `${GAMES}/admin/v1/games`;
 const su = await adminAs();
@@ -77,22 +77,28 @@ expectStatus('P13', 'delete the prize once unallocated', await gamesAdmin.call('
 // D: prize desk
 const winner = await person();
 let won = null;
-let spinWin = null; // { reference, name } of a Spin the Wheel win, for the name search
+let spinWin = null; // { reference, name, phone } of a Spin the Wheel win, for the name search
+const phones = []; // every full number used, none may appear in the CSV
+const phoneOf = new Map(); // reference: the phone it was won with
+const masked = (n) => `${n.slice(0, 3)}****${n.slice(-3)}`;
 for (let i = 0; i < 6 && !(won && spinWin); i++) {
   const v = await person();
   const e = await v.enter(i % 2 ? 'logo_game_dip' : 'logo_game_spin');
   if (e.status !== 201) continue;
   const name = `QA Desk Player ${Date.now().toString(36)}${i}`;
-  const p = await v.call('POST', `${GAMES}/games/v1/entries/${e.data.entryId}/play`, { player: { name, phone: '0771234567' } });
+  const phone = qaPhone();
+  phones.push(phone);
+  const p = await v.call('POST', `${GAMES}/games/v1/entries/${e.data.entryId}/play`, { player: { name, phone } });
   await su.call('POST', `${G}/screens/${i % 2 ? 'scr_dip' : 'scr_spin'}/release-lock`);
   const reference = p.data?.result?.reference;
-  if (reference && !(i % 2) && !spinWin) spinWin = { reference, name };
+  if (reference) phoneOf.set(reference, phone);
+  if (reference && !(i % 2) && !spinWin) spinWin = { reference, name, phone };
   else if (reference && !won) won = reference;
 }
 if (spinWin) {
   const found = await desk.call('GET', `${G}/references?q=${encodeURIComponent(spinWin.name.slice(3).toLowerCase())}`);
   const hit = found.data?.items?.find((r) => r.reference === spinWin.reference);
-  check('D8', 'desk finds a Spin prize by part of the player name, with name and phone', Boolean(hit && hit.player?.name === spinWin.name && hit.player?.phone === '0771234567'), JSON.stringify(found.data).slice(0, 300));
+  check('D8', 'desk finds a Spin prize by part of the player name, with name and phone', Boolean(hit && hit.player?.name === spinWin.name && hit.player?.phone === spinWin.phone), JSON.stringify(found.data).slice(0, 300));
   const byRef = await desk.call('GET', `${G}/references?q=${encodeURIComponent(spinWin.reference)}`);
   check('D9', 'the same search box finds a reference ID', byRef.data?.items?.[0]?.reference === spinWin.reference, JSON.stringify(byRef.data).slice(0, 200));
   won ??= spinWin.reference;
@@ -112,12 +118,12 @@ if (won) {
 if (won) {
   const report = await viewer.call('GET', `${G}/reports/plays?sessionId=${running.sessionId}`);
   const row = report.data?.items?.find((r) => r.reference === won);
-  check('E1', 'plays report shows the name, the masked phone and who collected', Boolean(row && row.name.startsWith('QA Desk Player') && row.phone === '077****567' && row.collectedAt && row.collectedBy), JSON.stringify(row ?? report.data).slice(0, 300));
+  check('E1', 'plays report shows the name, the masked phone and who collected', Boolean(row && row.name.startsWith('QA Desk Player') && row.phone === masked(phoneOf.get(won) ?? '') && row.collectedAt && row.collectedBy), JSON.stringify(row ?? report.data).slice(0, 300));
   const csv = await viewer.call('GET', `${G}/reports/plays?sessionId=${running.sessionId}&format=csv`);
   const text = typeof csv.data === 'string' ? csv.data : '';
   const line = text.split('\r\n').find((l) => l.includes(won)) ?? '';
-  check('E2', 'CSV export has the columns and the collected prize row', csv.status === 200 && text.includes('"Played at (Colombo)","Game","Name","Phone","QuickLook user ID","Prize","Reference","Collected"') && line.includes('"077****567"') && line.includes('"Yes"'), `${csv.status} ${text.slice(0, 200)}`);
-  check('E3', 'CSV export never has a full phone number', !text.includes('0771234567'), 'full number found');
+  check('E2', 'CSV export has the columns and the collected prize row', csv.status === 200 && text.includes('"Played at (Colombo)","Game","Name","Phone","QuickLook user ID","Prize","Reference","Collected"') && line.includes(`"${masked(phoneOf.get(won) ?? '')}"`) && line.includes('"Yes"'), `${csv.status} ${text.slice(0, 200)}`);
+  check('E3', 'CSV export never has a full phone number', !phones.some((n) => text.includes(n)), 'full number found');
   const noHeader = await fetch(`${G}/reports/plays?sessionId=${running.sessionId}&format=csv`, { headers: { cookie: [...viewer.jar].map(([k, v]) => `${k}=${v}`).join('; ') } });
   check('E4', 'CSV export without the admin header is refused (cross-site guard)', noHeader.status === 403, `got ${noHeader.status}`);
   expectStatus('E5', 'prize desk cannot export the plays', await desk.call('GET', `${G}/reports/plays?sessionId=${running.sessionId}&format=csv`), 403);

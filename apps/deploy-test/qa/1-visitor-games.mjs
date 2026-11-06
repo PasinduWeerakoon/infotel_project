@@ -1,5 +1,5 @@
 // QA session 1: visitor games flow
-import { GAMES, PLATFORM, adminAs, check, expectStatus, person, summary, wait } from './lib.mjs';
+import { adminAs, check, expectStatus, GAMES, person, PLATFORM, qaPlayer, summary, wait } from './lib.mjs';
 
 const admin = await adminAs();
 expectStatus('A0', 'super admin login', admin.loginResult, 200);
@@ -24,7 +24,7 @@ check('V3', 'entry view hides remaining quantities', !JSON.stringify(e1.data).in
 const p2 = await person();
 await p2.scan('logo_game_dip'); // signs p2 in
 expectStatus('V4', "another visitor cannot read someone else's entry", await p2.call('GET', `${GAMES}/games/v1/entries/${entryId}`), 404);
-expectStatus('V5', "another visitor cannot play someone else's entry", await p2.call('POST', `${GAMES}/games/v1/entries/${entryId}/play`, { player: { name: 'QA Player', phone: '0771234567' } }), 404);
+expectStatus('V5', "another visitor cannot play someone else's entry", await p2.call('POST', `${GAMES}/games/v1/entries/${entryId}/play`, { player: qaPlayer() }), 404);
 
 // V6 second visitor on the same game while the screen is busy
 expectStatus('V6', 'second visitor on a busy Spin screen gets GAME_IN_PROGRESS', await p2.enter('logo_game_spin'), 409, 'GAME_IN_PROGRESS');
@@ -36,12 +36,12 @@ expectStatus('V6b', 'Spin without name and phone gets PLAYER_DETAILS_REQUIRED', 
 
 // V7 double tap on play: one result, one prize taken
 const before = await givenTotal('spin');
-const [pa, pb, pc] = await Promise.all([1, 2, 3].map(() => p1.call('POST', `${GAMES}/games/v1/entries/${entryId}/play`, { player: { name: 'QA Player', phone: '0771234567' } })));
+const [pa, pb, pc] = await Promise.all([1, 2, 3].map(() => p1.call('POST', `${GAMES}/games/v1/entries/${entryId}/play`, { player: qaPlayer() })));
 const same = [pa, pb, pc].every((r) => r.status === 200 && r.data?.result?.reference === pa.data?.result?.reference);
 check('V7', 'three parallel play taps return one identical result', same, [pa, pb, pc].map((r) => `${r.status}/${r.code ?? r.data?.result?.reference}`).join(' '));
 const after = await givenTotal('spin');
 check('V8', 'only one prize unit is taken for the triple tap', after - before === (pa.data?.result?.prize ? 1 : 0), `given went ${before} to ${after}`);
-const replay = await p1.call('POST', `${GAMES}/games/v1/entries/${entryId}/play`, { player: { name: 'QA Player', phone: '0771234567' } });
+const replay = await p1.call('POST', `${GAMES}/games/v1/entries/${entryId}/play`, { player: qaPlayer() });
 check('V9', 'playing again later returns the same result', replay.data?.result?.reference === pa.data?.result?.reference, `${replay.status}`);
 
 // V10 one play per session across both games
@@ -86,11 +86,11 @@ const p3 = await person();
 const e3 = await p3.enter('logo_game_dip');
 expectStatus('V18a', 'new visitor enters Lucky Dip', e3, 201);
 await wait(22_000);
-expectStatus('V18', 'playing after the timeout gives ENTRY_EXPIRED', await p3.call('POST', `${GAMES}/games/v1/entries/${e3.data?.entryId}/play`, { player: { name: 'QA Player', phone: '0771234567' } }), 409, 'ENTRY_EXPIRED');
+expectStatus('V18', 'playing after the timeout gives ENTRY_EXPIRED', await p3.call('POST', `${GAMES}/games/v1/entries/${e3.data?.entryId}/play`, { player: qaPlayer() }), 409, 'ENTRY_EXPIRED');
 const e3b = await p3.enter('logo_game_dip');
 expectStatus('V19', 'after expiry the same visitor may scan again', e3b, 201);
 expectStatus('V19b', 'Lucky Dip without name and phone gets PLAYER_DETAILS_REQUIRED', await p3.call('POST', `${GAMES}/games/v1/entries/${e3b.data?.entryId}/play`), 422, 'PLAYER_DETAILS_REQUIRED');
-const v19play = await p3.call('POST', `${GAMES}/games/v1/entries/${e3b.data?.entryId}/play`, { player: { name: 'QA Player', phone: '0771234567' } });
+const v19play = await p3.call('POST', `${GAMES}/games/v1/entries/${e3b.data?.entryId}/play`, { player: qaPlayer() });
 expectStatus('V20', 'and play the new entry', v19play, 200);
 await release('lucky-dip');
 await admin.call('PUT', `${GAMES}/admin/v1/games/settings`, { ...settings, paused: undefined });

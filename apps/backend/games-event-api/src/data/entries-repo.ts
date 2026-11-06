@@ -10,7 +10,8 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { env } from '../config.js';
-import type { Entry, Game, PlayerDetails } from '../domain/types.js';
+import type { Entry, Game, PlayerDetails, Voided } from '../domain/types.js';
+import type { TransactItem } from './claims-repo.js';
 import { cancellationReasons, db, isConditionFailure, isTransactionConflict, retryOnConflict } from './db.js';
 import { clean, keys } from './keys.js';
 
@@ -139,8 +140,11 @@ async function tryCreateEntry(
   }
 }
 
-/** BUSY: the write kept colliding with other writes; the caller draws again */
-export type PlayFailure = 'NOT_READY' | 'PRIZE_TAKEN' | 'BUSY';
+/**
+ * BUSY: the write kept colliding with other writes; the caller draws again.
+ * GUARD: the name (or a guest's phone) already played this session; nothing was saved.
+ */
+export type PlayFailure = 'NOT_READY' | 'PRIZE_TAKEN' | 'BUSY' | 'GUARD';
 
 /**
  * Stores a play result in one transaction. With a prize: the allocation is decremented only if
@@ -155,6 +159,8 @@ export async function savePlay(input: {
   player: PlayerDetails | null;
   /** Colombo date, set when the repeat-winner rule must remember a main prize */
   rememberMainPrizeOn: string | null;
+  /** Session guards written with the play (claims-repo): the play fails if one is taken */
+  guards?: TransactItem[];
 }): Promise<PlayFailure | null> {
   const { entry, prize, reference, playedAt, player } = input;
   const items: NonNullable<ConstructorParameters<typeof TransactWriteCommand>[0]['TransactItems']> = [
@@ -224,6 +230,8 @@ export async function savePlay(input: {
       });
     }
   }
+  const firstGuard = items.length;
+  items.push(...(input.guards ?? []));
 
   try {
     await retryOnConflict(() => db.send(new TransactWriteCommand({ TransactItems: items })));
@@ -233,7 +241,8 @@ export async function savePlay(input: {
     if (!isConditionFailure(error)) throw error;
     const reasons = cancellationReasons(error);
     if (reasons[0] === 'ConditionalCheckFailed') return 'NOT_READY';
-    if (reasons[1] === 'ConditionalCheckFailed') return 'PRIZE_TAKEN';
+    if (reasons[1] === 'ConditionalCheckFailed' && firstGuard > 1) return 'PRIZE_TAKEN';
+    if (reasons.some((r, i) => i >= firstGuard && r === 'ConditionalCheckFailed')) return 'GUARD';
     throw error;
   }
 }
@@ -390,6 +399,8 @@ export interface Reference {
   wonAt: string;
   collectedAt: string | null;
   collectedBy: string | null;
+  /** Set when the prize was taken back: it can no longer be collected */
+  voided?: Voided | null;
 }
 
 export async function getReference(reference: string): Promise<Reference | undefined> {

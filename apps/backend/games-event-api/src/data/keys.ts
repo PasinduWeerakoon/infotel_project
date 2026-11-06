@@ -15,6 +15,8 @@
  * | Screen conn.  | SCREENCONN#{screenId}       | CONN#{connectionId}      |
  * | Screen lock   | LOCK                        | LOCK#{lockKey}           |
  * | Main prize    | USERDAY#{userId}#{date}     | MAIN                     |
+ * | Name guard    | SESSION#{sessionId}         | NAME#{name}              (one play per name per session) |
+ * | Phone guard   | SESSION#{sessionId}         | PHONE#{phone}            (one play per phone per session) |
  * | Settings      | SETTINGS                    | GLOBAL                   |
  * | Alloc. editor | ALLOCLOCK                   | META                     |
  */
@@ -39,6 +41,8 @@ export const keys = {
   }),
   lock: (lockKey: string) => ({ PK: 'LOCK', SK: `LOCK#${lockKey}` }),
   mainPrizeToday: (userId: string, date: string) => ({ PK: `USERDAY#${userId}#${date}`, SK: 'MAIN' }),
+  sessionName: (sessionId: string, name: string) => ({ PK: `SESSION#${sessionId}`, SK: `NAME#${name}` }),
+  sessionPhone: (sessionId: string, phone: string) => ({ PK: `SESSION#${sessionId}`, SK: `PHONE#${phone}` }),
   settings: () => ({ PK: 'SETTINGS', SK: 'GLOBAL' }),
   /** Held while one admin save of allocations runs, so saves never interleave */
   allocationLock: () => ({ PK: 'ALLOCLOCK', SK: 'META' }),

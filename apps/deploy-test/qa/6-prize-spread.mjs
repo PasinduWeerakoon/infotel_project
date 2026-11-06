@@ -3,7 +3,7 @@
 // 6 minutes, gives Spin 30 QA chocolates and 4 QA main prizes, then sends a player every
 // 10 seconds (36 players for 34 prizes). Starts and ends with a reset, so other sessions are not affected.
 import { execFileSync } from 'node:child_process';
-import { GAMES, adminAs, check, expectStatus, person, summary, wait } from './lib.mjs';
+import { adminAs, check, expectStatus, GAMES, person, qaPlayer, summary, wait } from './lib.mjs';
 
 const reset = () => execFileSync('node', [new URL('./reset-local.mjs', import.meta.url).pathname], { stdio: 'ignore' });
 const LENGTH_MIN = 6;
@@ -52,7 +52,7 @@ while (Date.now() < startedAt + LENGTH_MIN * 60_000 - 5_000) {
   } else if (e.status !== 201) {
     problems.push(`entry ${e.status} ${e.code}`);
   } else {
-    const p = await v.call('POST', `${GAMES}/games/v1/entries/${e.data.entryId}/play`, { player: { name: 'QA Player', phone: '0771234567' } });
+    const p = await v.call('POST', `${GAMES}/games/v1/entries/${e.data.entryId}/play`, { player: qaPlayer() });
     const r = p.data?.result;
     const segment = p.data?.display?.segments?.[r?.animation?.target]?.id;
     if (p.status !== 200 || !r?.prize || segment !== r.prize.prizeId) problems.push(`play ${p.status} ${segment}`);

@@ -63,6 +63,16 @@ export async function adminAs(username = 'super.admin', password = ADMIN_PASSWOR
   return a;
 }
 
+/**
+ * A different test visitor every time: an own name and phone number. The games allow one play per
+ * name and per phone in a session, so reusing one name or number would look like one person.
+ */
+export const qaPhone = () => `07${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
+export const qaPlayer = (prefix = 'QA Player') => ({
+  name: `${prefix} ${Math.random().toString(36).slice(2, 8)}`,
+  phone: qaPhone(),
+});
+
 export const results = [];
 export function check(id, label, ok, detail = '') {
   results.push({ id, label, ok, detail });
