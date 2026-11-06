@@ -59,13 +59,17 @@ export interface Leaderboard {
   players: number;
   /** Scans received in the session */
   scans?: number;
+  /** The page shown (10 players each) and how many pages there are */
+  page?: number;
+  pages?: number;
   top: { rank: number; playerNumber: number; name?: string; points: number; stalls: number }[];
   winners?: { rank: number; playerNumber: number; name?: string; points: number; prizeName: string | null }[];
 }
 
 export const screensApi = {
   logos: () => api<{ items: Logo[] }>('/platform/v1/logos'),
-  leaderboard: () => api<Leaderboard>('/hunt/v1/leaderboard?top=10'),
+  /** One page of everyone, 10 players each: ranks 1 to 10 on page 1, 11 to 20 on page 2 */
+  leaderboard: (page = 1) => api<Leaderboard>(`/hunt/v1/leaderboard?page=${page}`),
 };
 
 /** WebSocket address of the stall screen API. Set at build time for AWS, same host in development. */

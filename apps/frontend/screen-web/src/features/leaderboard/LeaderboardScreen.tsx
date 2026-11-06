@@ -1,11 +1,13 @@
 /**
  * /leaderboard — the Treasure Hunt leaderboard on the hall screen (wireframe H2), arcade style:
- * a podium for the top three and the top 10 list under it (always 10 places, empty ones waiting).
- * Refreshes every 3 seconds.
+ * a podium for the top three and the list under it, 10 players a page (page 1 always shows 10
+ * places, empty ones waiting). With more than 10 players the list moves to the next page every
+ * few seconds and starts again at page 1, so everyone is shown. Refreshes every 3 seconds.
  * QuickLook names (the player number when there is no name). After the end: final standings, then the confirmed winners.
  */
 import { IconClockHour4, IconCrown, IconMap2 } from '@tabler/icons-react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { playerLabel, screensApi } from '../../api/screens';
 import { ConnectionLost } from '../../components/ConnectionLost';
 import { formatSeconds, useCountdown } from '../../hooks/useCountdown';
@@ -33,12 +35,27 @@ const PODIUM = [
   { place: 3, height: 'h-[8vh]', medal: 'from-tangerine to-coral' },
 ];
 
+/** How long each page of the list stays on the screen */
+const PAGE_MS = 10_000;
+
 export function LeaderboardScreen() {
+  // Page 1 always: the podium, the session, the winners and the number of pages
   const board = useQuery({
-    queryKey: ['leaderboard'],
-    queryFn: screensApi.leaderboard,
+    queryKey: ['leaderboard', 1],
+    queryFn: () => screensApi.leaderboard(1),
     refetchInterval: 3000,
   });
+  const pages = board.data?.pages ?? 1;
+  const page = usePageTurner(pages);
+  const later = useQuery({
+    queryKey: ['leaderboard', page],
+    queryFn: () => screensApi.leaderboard(page),
+    refetchInterval: 3000,
+    enabled: page > 1,
+    placeholderData: keepPreviousData,
+  });
+  // A later page is shown once it has loaded, page 1 until then
+  const list = page > 1 && later.data?.page === page ? later.data : board.data;
   const logos = useQuery({ queryKey: ['logos'], queryFn: screensApi.logos, refetchInterval: 60_000 });
   const data = board.data;
   const huntLogo = logos.data?.items.find((l) => l.logoType === 'display' && l.targetId === 'hunt');
@@ -83,7 +100,7 @@ export function LeaderboardScreen() {
           ) : (
             <>
               <Podium rows={rows} />
-              <TopTen rows={data?.top ?? []} />
+              <TopTen rows={list?.top ?? []} page={list?.page ?? 1} pages={pages} />
             </>
           )}
         </section>
@@ -158,15 +175,50 @@ function Podium({ rows }: { rows: Row[] }) {
   );
 }
 
-/** The top 10 in two columns (1 to 5, 6 to 10). Places nobody has reached yet wait, dimmed */
-function TopTen({ rows }: { rows: Row[] }) {
-  const places = Array.from({ length: 10 }, (_, i) => rows.find((r) => r.rank === i + 1) ?? i + 1);
+/**
+ * The next page number every few seconds, back to 1 after the last page. Starts again at 1 when
+ * the number of pages shrinks below the page shown.
+ */
+function usePageTurner(pages: number) {
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    if (page > pages) setPage(1);
+  }, [page, pages]);
+  useEffect(() => {
+    if (pages <= 1) return;
+    const timer = setInterval(() => setPage((p) => (p >= pages ? 1 : p + 1)), PAGE_MS);
+    return () => clearInterval(timer);
+  }, [pages]);
+  return page;
+}
+
+/**
+ * One page of 10 in two columns (1 to 5, 6 to 10 on page 1). On page 1 places nobody has reached
+ * yet wait, dimmed. Later pages show only the players on them.
+ */
+function TopTen({ rows, page, pages }: { rows: Row[]; page: number; pages: number }) {
+  const from = (page - 1) * 10 + 1;
+  const places = Array.from(
+    { length: 10 },
+    (_, i) => rows.find((r) => r.rank === from + i) ?? (page === 1 ? from + i : null),
+  );
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[1.2vh]">
-      <h2 className="font-display text-[2.6vh] font-bold tracking-[0.12em] text-lilac uppercase">Top 10</h2>
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="font-display text-[2.6vh] font-bold tracking-[0.12em] text-lilac uppercase">
+          {page === 1 ? 'Top 10' : `Places ${from} to ${rows.at(-1)?.rank ?? from}`}
+        </h2>
+        {pages > 1 ? (
+          <span className="glass rounded-full px-4 py-1 text-[2vh] font-bold tabular-nums">
+            Page {page} of {pages}
+          </span>
+        ) : null}
+      </div>
       <div className="grid min-h-0 flex-1 grid-flow-col grid-cols-2 grid-rows-5 gap-x-[1.5vw] gap-y-[1vh]">
-        {places.map((place) =>
-          typeof place === 'number' ? (
+        {places.map((place, i) =>
+          place === null ? (
+            <div key={`none-${from + i}`} />
+          ) : typeof place === 'number' ? (
             <div
               key={`free-${place}`}
               className="flex items-center gap-[1.2vw] rounded-[2vh] border-2 border-dashed border-white/10 px-[1.2vw]"
